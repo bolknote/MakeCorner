@@ -161,7 +161,7 @@ func parseoptions() map[string]string {
     // из коммандной строки появятся в переменных только после вызова Parse,
     // который надо делать в самом конце
     for long, optdata := range def {
-        for _, name := range []string{long, optdata.short} {
+        for _, name := range [...]string{long, optdata.short} {
             o := option{}
 
             switch optdata.def.(type) {
@@ -175,6 +175,7 @@ func parseoptions() map[string]string {
                     o.Set(flag.String(name, optdata.def.(string), optdata.desc), optdata.def.(string))
             }
 
+            // язык не позволяет работать напрямую, приходится через промежуточную переменную
             comopts[name] = o
         }
     }
@@ -202,11 +203,9 @@ func parseoptions() map[string]string {
                 options[long] = iniopts[optdata.short]
 
             default:
-                options[long] = comopts[long].String()
+                options[long] = comopts[long].String() // если ключ не установлен, в нём значение по-умолчанию
         }
     }
-
-    comopts, comopts = nil, nil
 
     return options
 }
