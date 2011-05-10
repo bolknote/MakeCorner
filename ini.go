@@ -10,7 +10,7 @@ type inisection map[string]string
 type inifile map[string]inisection
 
 func ParseFile(name string) inifile {
-    f, err := os.Open(name, os.O_RDONLY, 0666)
+    f, err := os.OpenFile(name, os.O_RDONLY, 0666)
     if err != nil {
         return nil
     }
