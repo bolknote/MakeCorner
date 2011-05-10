@@ -38,6 +38,8 @@ type option struct {
     def  string
 }
 
+// Константы, описывающие какой тип у содержимого
+// в хранилище ключа командной строки
 const (
     optionEmpty = iota
     optionBool
@@ -77,10 +79,7 @@ func (f option) String() string {
             return "<nil>"
 
         case optionBool:
-            if *f.k0 {
-                return "1"
-            }
-            return "0"
+            return (map[bool]string{true: "1", false: "0"})[*f.k0]
 
         case optionInt:
             return strconv.Itoa(*f.k1)
@@ -92,6 +91,8 @@ func (f option) String() string {
     return ""
 }
 
+// функция для разбора опций — из командной строки, заданных по-умолчанию и
+// из ini-файла
 func parseoptions() map[string]string {
     type optdict struct {
         short string
@@ -111,13 +112,20 @@ func parseoptions() map[string]string {
         "save-exif":    optdict{"e", false, "Сохранять ли EXIF"},
         "recursive":    optdict{"R", false, "Рекурсивная обработка"},
         "keep-name":    optdict{"k", false, "Сохранить имена файлов"},
+        "moo":          optdict{" ", false, "Му-у-у-у"},
     }
 
+    // Помощь, выводится, если опции заданы неверно или задана опция --help
     flag.Usage = func() {
         fmt.Fprintln(os.Stderr, "Ключи программы:\n")
 
         for long, optdata := range def {
             var defstr string
+
+            // пропускаем «пасхальное яйцо»
+            if long == "moo" {
+                continue
+            }
 
             switch optdata.def.(type) {
                 case int:
@@ -133,6 +141,7 @@ func parseoptions() map[string]string {
         }
     }
 
+    // опции из ini-файла
     iniopts := map[string]string{}
 
     if ininame := getininame(); ininame != nil {
@@ -148,33 +157,42 @@ func parseoptions() map[string]string {
     // опции командной строки
     comopts := map[string]option{}
 
+    // Приходится копить опции в указателях, так как настоящие значения из
+    // из коммандной строки появятся в переменных только после вызова Parse,
+    // который надо делать в самом конце
     for long, optdata := range def {
         optlong, optshrt := option{}, option{}
 
         switch optdata.def.(type) {
             case int:
-                optlong.Set(flag.Int(long, optdata.def.(int), optdata.desc), strconv.Itoa(optdata.def.(int)))
-                optshrt.Set(flag.Int(optdata.short, optdata.def.(int), optdata.desc), strconv.Itoa(optdata.def.(int)))
+                defstr := strconv.Itoa(optdata.def.(int))
+
+                optlong.Set(flag.Int(long, optdata.def.(int), optdata.desc), defstr)
+                optshrt.Set(flag.Int(optdata.short, optdata.def.(int), optdata.desc), defstr)
 
                 comopts[long], comopts[optdata.short] = optlong, optshrt
 
             case bool:
-                defstr := map[bool]string{true: "1", false: "0"}
+                defstr := (map[bool]string{true: "1", false: "0"})[optdata.def.(bool)]
 
-                optlong.Set(flag.Bool(long, optdata.def.(bool), optdata.desc), defstr[optdata.def.(bool)])
-                optshrt.Set(flag.Bool(optdata.short, optdata.def.(bool), optdata.desc), defstr[optdata.def.(bool)])
+                optlong.Set(flag.Bool(long, optdata.def.(bool), optdata.desc), defstr)
+                optshrt.Set(flag.Bool(optdata.short, optdata.def.(bool), optdata.desc), defstr)
 
                 comopts[long], comopts[optdata.short] = optlong, optshrt
 
             case string:
-                optlong.Set(flag.String(long, optdata.def.(string), optdata.desc), optdata.def.(string))
-                optshrt.Set(flag.String(optdata.short, optdata.def.(string), optdata.desc), optdata.def.(string))
+                defstr := optdata.def.(string)
+
+                optlong.Set(flag.String(long, optdata.def.(string), optdata.desc), defstr)
+                optshrt.Set(flag.String(optdata.short, optdata.def.(string), optdata.desc), defstr)
 
                 comopts[long], comopts[optdata.short] = optlong, optshrt
        }
     }
 
     flag.Parse()
+
+    // сборка опций из нескольких источников
     options := map[string]string{}
 
     for long, optdata := range def {
@@ -204,8 +222,26 @@ func parseoptions() map[string]string {
     return options
 }
 
+// Сила му-у-у-у-у!
+func moo() {
+    moo := `
+                (__)
+                (oo)
+           /-----\/
+          / |   ||
+        *  /\--/\
+           ~~  ~~
+        `
+
+    os.Stdout.WriteString(moo)
+    os.Exit(0)
+}
+
 func main() {
     options := parseoptions()
+    if _, ok := options["moo"]; ok {
+        moo()
+    }
 
     fmt.Println(options)
 }
