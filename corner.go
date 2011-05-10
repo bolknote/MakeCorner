@@ -314,7 +314,7 @@ func main() {
 
     // Маска для нового имени
     now := time.LocalTime().Format("2006.01.02")
-    oName := path.Join(options["out-dir"], now)
+    oNameMask := path.Join(options["out-dir"], now)
     if oLen > 1 {
         prec := strconv.Itoa(len(strconv.Itoa(oLen)))
         oNameMask += ".%0" + prec + "d.jpg"
@@ -330,10 +330,8 @@ func main() {
 
             if im, e := jpeg.Decode(f); e == nil {
                 if options["width"] != "a" && options["width"] != "auto" && options["width"] != "0" {
-                    f.Seek(0, 0)
-                    c, _, _ := image.DecodeConfig(f)
-                    sx := float32(c.Width)
-                    sy := float32(c.Height)
+                    sx := float32(im.Bounds().Dx())
+                    sy := float32(im.Bounds().Dy())
 
                     if w, e := strconv.Atoi(options["width"]); e == nil {
                         h := int(sy * (float32(w) / sx))
