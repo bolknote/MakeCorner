@@ -5,10 +5,12 @@ import (
     "fmt"
     "os"
  fp "path/filepath"
+    "path"
     "flag"
     "strconv"
   r "regexp"
   s "strings"
+    "io/ioutil"
 )
 
 // проверяем файл на существование
@@ -228,12 +230,41 @@ func moo() {
     os.Exit(0)
 }
 
-func getfileslist(path, mask string) []string {
-    return fp.Glob(fp.Join(path, mask))
+// функция обходит дерево файлов (от текущего местоположения)
+// рекурсивно и собирает все файлы, подходящие под маску,
+// в процессе обхода исключается папка «except»
+func getrecurlist(mask, except string) (out []string) {
+    wd, _ := os.Getwd()
+    out = fp.Glob(mask)
+
+    for i, file := range out {
+        out[i] = fp.Join(wd, file)
+    }
+
+    files, e := ioutil.ReadDir(".")
+    if e == nil {
+        for _, file := range files {
+            if file.IsDirectory() {
+                entry := path.Join(wd, file.Name)
+
+                if entry == except {
+                    continue
+                }
+
+                os.Chdir(entry)
+                out = append(out, getrecurlist(mask, except)...)
+                os.Chdir(wd)
+            }
+        }
+    }
+
+    return
 }
 
 func main() {
     options := parseoptions()
+
+    // Показываем силу му-у-у-у-у?
     if v, ok := options["moo"]; ok && v == "1" {
         moo()
     }
@@ -241,12 +272,29 @@ func main() {
     // Преобразование маски файлов в более традиционный для Go формат
     regexp, _ := r.Compile(`(\{[^\}]+\})`)
 
-    options["mask"] = regexp.ReplaceAllStringFunc(options["mask"], func(m string) string {
+    oMask := regexp.ReplaceAllStringFunc(options["mask"], func(m string) string {
         return "[" + s.Join(s.Split(m[1:len(m)-1], ",", -1), "") + "]"
     })
 
-    fmt.Println(options)
+    // Составляем список файлов, по которому будем двигаться
+    var oOutDir string
+    var oFileList []string
 
-    wd, _ := os.Getwd()
-    fmt.Println(getfileslist(wd, options["mask"]))
+    if options["recursive"] == "1" {
+        if path.IsAbs(options["out-dir"]) {
+            oOutDir = path.Clean(options["out-dir"])
+        } else {
+            wd, _ := os.Getwd()
+            oOutDir = path.Clean(path.Join(wd, options["out-dir"]))
+        }
+
+        oFileList = getrecurlist(oMask, oOutDir)
+    } else {
+        oFileList = fp.Glob(oMask)
+    }
+
+    // Сколько файлов получилось?
+    oLen := len(oFileList)
+
+    fmt.Println(oLen)
 }
