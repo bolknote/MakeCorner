@@ -12,6 +12,8 @@ import (
   s "strings"
     "io/ioutil"
     "time"
+    "image"
+    "image/jpeg"
 )
 
 // проверяем файл на существование
@@ -312,7 +314,28 @@ func main() {
         oName += ".jpg"
     }
 
-    fmt.Println(oName)
+    _ = oName // REMOVEME
 
-    fmt.Println(oLen)
+    for _, name := range oFileList {
+        if f, e := os.Open(name, os.O_RDONLY, 0666); e == nil {
+            defer f.Close()
+
+            if im, e := jpeg.Decode(f); e == nil {
+                if options["width"] != "a" && options["width"] != "auto" && options["width"] != "0" {
+                    f.Seek(0, 0)
+                    c, _, _ := image.DecodeConfig(f)
+                    sx := float64(c.Width)
+                    sy := float64(c.Height)
+
+                    if w, e := strconv.Atoui64(options["width"]); e == nil {
+                        h := uint64(sy * (float64(w) / sx))
+
+                        fmt.Println(w, h)
+                    }
+                }
+
+                _ = im
+            }
+        }
+    }
 }
