@@ -11,6 +11,7 @@ import (
   r "regexp"
   s "strings"
     "io/ioutil"
+    "time"
 )
 
 // проверяем файл на существование
@@ -295,6 +296,23 @@ func main() {
 
     // Сколько файлов получилось?
     oLen := len(oFileList)
+
+    if oLen < 1 {
+        os.Stdout.WriteString("Файлы не найдены\n")
+        os.Exit(1)
+    }
+
+    // Маска для нового имени
+    now := time.LocalTime().Format("2006.01.02")
+    oName := path.Join(options["out-dir"], now)
+    if oLen > 1 {
+        prec := strconv.Itoa(len(strconv.Itoa(oLen)))
+        oName += ".%0" + prec + "d.jpg"
+    } else {
+        oName += ".jpg"
+    }
+
+    fmt.Println(oName)
 
     fmt.Println(oLen)
 }
