@@ -238,7 +238,7 @@ func moo() {
 // в процессе обхода исключается папка «except»
 func getrecurlist(mask, except string) (out []string) {
     wd, _ := os.Getwd()
-    out = fp.Glob(mask)
+    out, _ = fp.Glob(mask)
 
     for i, file := range out {
         out[i] = fp.Join(wd, file)
@@ -263,6 +263,14 @@ func getrecurlist(mask, except string) (out []string) {
 
     return
 }
+
+/*func lanczos3(im *image.Image, iw, ih, ow, oh int) (om *image.Image) {
+    _, _, _, _, _ = iw, ih, ow, oh, im
+
+    om = (*image.Image)(image.NewRGBA(ow, oh))
+
+    return
+}*/
 
 func main() {
     options := parseoptions()
@@ -293,7 +301,7 @@ func main() {
 
         oFileList = getrecurlist(oMask, oOutDir)
     } else {
-        oFileList = fp.Glob(oMask)
+        oFileList, _ = fp.Glob(oMask)
     }
 
     // Сколько файлов получилось?
@@ -309,28 +317,34 @@ func main() {
     oName := path.Join(options["out-dir"], now)
     if oLen > 1 {
         prec := strconv.Itoa(len(strconv.Itoa(oLen)))
-        oName += ".%0" + prec + "d.jpg"
+        oNameMask += ".%0" + prec + "d.jpg"
     } else {
-        oName += ".jpg"
+        oNameMask += ".jpg"
     }
 
-    _ = oName // REMOVEME
+    _ = oNameMask // REMOVEME
 
     for _, name := range oFileList {
-        if f, e := os.Open(name, os.O_RDONLY, 0666); e == nil {
+        if f, e := os.OpenFile(name, os.O_RDONLY, 0666); e == nil {
             defer f.Close()
 
             if im, e := jpeg.Decode(f); e == nil {
                 if options["width"] != "a" && options["width"] != "auto" && options["width"] != "0" {
                     f.Seek(0, 0)
                     c, _, _ := image.DecodeConfig(f)
-                    sx := float64(c.Width)
-                    sy := float64(c.Height)
+                    sx := float32(c.Width)
+                    sy := float32(c.Height)
 
-                    if w, e := strconv.Atoui64(options["width"]); e == nil {
-                        h := uint64(sy * (float64(w) / sx))
+                    if w, e := strconv.Atoi(options["width"]); e == nil {
+                        h := int(sy * (float32(w) / sx))
 
                         fmt.Println(w, h)
+
+                        om := image.NewRGBA(w, h)
+                        fo, _ := os.OpenFile("out.jpg", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
+                        defer fo.Close()
+
+                        jpeg.Encode(fo, om, nil)
                     }
                 }
 
