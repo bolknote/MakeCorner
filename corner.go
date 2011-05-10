@@ -7,6 +7,8 @@ import (
  fp "path/filepath"
     "flag"
     "strconv"
+  r "regexp"
+  s "strings"
 )
 
 // проверяем файл на существование
@@ -112,7 +114,7 @@ func parseoptions() map[string]string {
         "save-exif":    optdict{"e", false, "Сохранять ли EXIF"},
         "recursive":    optdict{"R", false, "Рекурсивная обработка"},
         "keep-name":    optdict{"k", false, "Сохранить имена файлов"},
-        "moo":          optdict{" ", false, "Му-у-у-у"},
+        "moo":          optdict{"M", false, "Му-у-у-у"},
     }
 
     // Помощь, выводится, если опции заданы неверно или задана опция --help
@@ -163,6 +165,7 @@ func parseoptions() map[string]string {
     for long, optdata := range def {
         for _, name := range [...]string{long, optdata.short} {
             o := option{}
+            comopts[name] = o
 
             switch optdata.def.(type) {
                 case int:
@@ -225,11 +228,25 @@ func moo() {
     os.Exit(0)
 }
 
+func getfileslist(path, mask string) []string {
+    return fp.Glob(fp.Join(path, mask))
+}
+
 func main() {
     options := parseoptions()
-    if _, ok := options["moo"]; ok {
+    if v, ok := options["moo"]; ok && v == "1" {
         moo()
     }
 
+    // Преобразование маски файлов в более традиционный для Go формат
+    regexp, _ := r.Compile(`(\{[^\}]+\})`)
+
+    options["mask"] = regexp.ReplaceAllStringFunc(options["mask"], func(m string) string {
+        return "[" + s.Join(s.Split(m[1:len(m)-1], ",", -1), "") + "]"
+    })
+
     fmt.Println(options)
+
+    wd, _ := os.Getwd()
+    fmt.Println(getfileslist(wd, options["mask"]))
 }
