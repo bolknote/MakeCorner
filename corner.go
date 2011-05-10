@@ -161,33 +161,22 @@ func parseoptions() map[string]string {
     // из коммандной строки появятся в переменных только после вызова Parse,
     // который надо делать в самом конце
     for long, optdata := range def {
-        optlong, optshrt := option{}, option{}
+        for _, name := range []string{long, optdata.short} {
+            o := option{}
 
-        switch optdata.def.(type) {
-            case int:
-                defstr := strconv.Itoa(optdata.def.(int))
+            switch optdata.def.(type) {
+                case int:
+                    o.Set(flag.Int(name, optdata.def.(int), optdata.desc), strconv.Itoa(optdata.def.(int)))
 
-                optlong.Set(flag.Int(long, optdata.def.(int), optdata.desc), defstr)
-                optshrt.Set(flag.Int(optdata.short, optdata.def.(int), optdata.desc), defstr)
+                case bool:
+                    o.Set(flag.Bool(name, optdata.def.(bool), optdata.desc), (map[bool]string{true: "1", false: "0"})[optdata.def.(bool)])
 
-                comopts[long], comopts[optdata.short] = optlong, optshrt
+                case string:
+                    o.Set(flag.String(name, optdata.def.(string), optdata.desc), optdata.def.(string))
+            }
 
-            case bool:
-                defstr := (map[bool]string{true: "1", false: "0"})[optdata.def.(bool)]
-
-                optlong.Set(flag.Bool(long, optdata.def.(bool), optdata.desc), defstr)
-                optshrt.Set(flag.Bool(optdata.short, optdata.def.(bool), optdata.desc), defstr)
-
-                comopts[long], comopts[optdata.short] = optlong, optshrt
-
-            case string:
-                defstr := optdata.def.(string)
-
-                optlong.Set(flag.String(long, optdata.def.(string), optdata.desc), defstr)
-                optshrt.Set(flag.String(optdata.short, optdata.def.(string), optdata.desc), defstr)
-
-                comopts[long], comopts[optdata.short] = optlong, optshrt
-       }
+            comopts[name] = o
+        }
     }
 
     flag.Parse()
