@@ -403,7 +403,7 @@ func main() {
         }
     }
 
-    // Пишем профайл для ч/б изображения
+    // Пишем профайл для ч/б изображения, профиль цветного не поддерживается «Оперой»
     oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
     profile, e := os.OpenFile(oProfile, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
     if e == nil {
@@ -447,6 +447,7 @@ func main() {
             corner.Copy(im, w - R, h - R, R + 1, R + 1, R, R)
         }
 
+        // Если имена не сохраняем, то заменяем на сгенерированное имя
         if options["keep-name"] == "0" {
             if oLen > 1 {
                 name = fmt.Sprintf(oNameMask, num + 1)
