@@ -12,15 +12,13 @@ import (
   s "strings"
     "io/ioutil"
     "time"
-    "image"
-    "image/jpeg"
+    "gd"
 )
 
 // проверяем файл на существование
 func fileexists(name string) bool {
-    fi, e := os.Stat(name)
-
-    return e == nil && fi.IsRegular()
+    _, e := os.Stat(name)
+    return e == nil
 }
 
 // проверим как называется ini-файл, если он есть
@@ -264,14 +262,6 @@ func getrecurlist(mask, except string) (out []string) {
     return
 }
 
-/*func lanczos3(im *image.Image, iw, ih, ow, oh int) (om *image.Image) {
-    _, _, _, _, _ = iw, ih, ow, oh, im
-
-    om = (*image.Image)(image.NewRGBA(ow, oh))
-
-    return
-}*/
-
 func main() {
     options := parseoptions()
 
@@ -287,21 +277,26 @@ func main() {
         return "[" + s.Join(s.Split(m[1:len(m)-1], ",", -1), "") + "]"
     })
 
+    // Первоначальное значение out-dir
+    wd, _ := os.Getwd()
+    oOutDir := path.Clean(path.Join(wd, options["out-dir"]))
+
     // Составляем список файлов, по которому будем двигаться
-    var oOutDir string
     var oFileList []string
 
     if options["recursive"] == "1" {
         if path.IsAbs(options["out-dir"]) {
             oOutDir = path.Clean(options["out-dir"])
-        } else {
-            wd, _ := os.Getwd()
-            oOutDir = path.Clean(path.Join(wd, options["out-dir"]))
         }
 
         oFileList = getrecurlist(oMask, oOutDir)
     } else {
         oFileList, _ = fp.Glob(oMask)
+    }
+
+    // Создаём директорий для результата, если он нужен
+    if  options["keep-name"] == "0" && !fileexists(oOutDir) {
+        os.MkdirAll(oOutDir, 0777)
     }
 
     // Сколько файлов получилось?
@@ -322,32 +317,78 @@ func main() {
         oNameMask += ".jpg"
     }
 
-    _ = oNameMask // REMOVEME
+    // Нормализация background, должны получиться три hex числа
+    // в Go очень примитивные regexp :(
+    if re := r.MustCompile(`^#[0-9a-fA-F]+`); len(options["background"]) == 7 && !re.MatchString(options["background"]) {
+        options["background"] = "#ffffff"
+    }
 
-    for _, name := range oFileList {
-        if f, e := os.OpenFile(name, os.O_RDONLY, 0666); e == nil {
-            defer f.Close()
+    // И переводим background компоненты
+    oBgColor := [3]int{}
 
-            if im, e := jpeg.Decode(f); e == nil {
-                if options["width"] != "a" && options["width"] != "auto" && options["width"] != "0" {
-                    sx := float32(im.Bounds().Dx())
-                    sy := float32(im.Bounds().Dy())
+    for i := 1; i<len(options["background"]); i+=2 {
+        c, _ := strconv.Btoi64(options["background"][i:i+2], 16)
+        oBgColor[i >> 1] = int(c)
+    }
 
-                    if w, e := strconv.Atoi(options["width"]); e == nil {
-                        h := int(sy * (float32(w) / sx))
+    // Уголки для скруглений
+    var corner *gd.Image
+    defer corner.Destroy()
 
-                        fmt.Println(w, h)
+    oRadius, _ := strconv.Atoi(options["radius"])
 
-                        om := image.NewRGBA(w, h)
-                        fo, _ := os.OpenFile("out.jpg", os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
-                        defer fo.Close()
+    if oRadius > 0 {
+        corner = gd.CreateTrueColor(oRadius * 2 + 1,  oRadius * 2 + 1)
+        corner.AlphaBlending(false)
+        corner.SaveAlpha(true)
+        trans := corner.ColorAllocateAlpha(0, 0, 0, 127)
+        back  := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
-                        jpeg.Encode(fo, om, nil)
-                    }
-                }
+        corner.Fill(0, 0, back)
+        corner.FilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, trans)
+        corner.GaussianBlur()
+    }
 
-                _ = im
+    // Качество сохраняемой картинки
+    oQuality, _ := strconv.Atoi(options["quality"])
+
+    for num, name := range oFileList {
+        im := gd.CreateFromJpeg(name)
+        im.AlphaBlending(true)
+
+        sx := im.Sx()
+        sy := im.Sy()
+        var w, h int
+
+        // Если указана какая-то разумная ширина, то уменьшим до этой
+        // ширины
+        if w, _ = strconv.Atoi(options["width"]); w > 0 {
+            h = int(float32(sy) * (float32(w) / float32(sx)))
+            imresized := gd.CreateTrueColor(w, h)
+            im.CopyResampled(imresized, 0, 0, 0, 0, w, h, sx, sy)
+            im.Destroy()
+
+            im = imresized
+        } else {
+            w, h = sx, sy
+        }
+
+        if R := oRadius; R > 0 {
+            corner.Copy(im, 0, 0, 0, 0, R, R)
+            corner.Copy(im, 0, h - R, 0, R + 1, R, R)
+            corner.Copy(im, w - R, 0, R + 1, 0, R, R)
+            corner.Copy(im, w - R, h - R, R + 1, R + 1, R, R)
+        }
+
+        if options["keep-name"] == "0" {
+            if len(oFileList) > 1 {
+                name = fmt.Sprintf(oNameMask, num + 1)
+            } else {
+                name = oNameMask
             }
         }
+
+        im.Jpeg(name, oQuality)
+        im.Destroy()
     }
 }
