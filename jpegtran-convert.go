@@ -3,7 +3,8 @@ package main
 import "os"
 import "bufio"
 import "encoding/git85"
-//import "fmt"
+import "fmt"
+import "strings"
 
 func main() {
     jpegtran := "jpegtran.bz2"
@@ -20,10 +21,19 @@ func main() {
     var dst []byte = make([]byte, git85.EncodedLen(len(src)))
     git85.Encode(dst, src)
 
-    fw, _ := os.OpenFile("jt.go", os.O_RDWR, 0666)
+    fw, e := os.OpenFile("jt.go", os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0666)
+    fmt.Println(e)
     defer fw.Close()
 
     w := bufio.NewWriter(fw)
+    str := (string)(dst)
+    //fmt.Println(dst)
+    str = strings.Replace(str, "\\", `\\`, -1)
+    str = strings.Replace(str, "\n", "\\n", -1)
+    fmt.Println(len(dst), len(str))
 
-    w.WriteString((string)(dst))
+    w.WriteString("\tjpegtran := \"")
+    w.WriteString(str)
+    w.WriteString("\"\n")
+    w.Flush()
 }
