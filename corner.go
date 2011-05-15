@@ -13,6 +13,11 @@ import (
     "io/ioutil"
     "time"
     "gd"
+    "jpegtran"
+    "compress/bzip2"
+    "encoding/git85"
+    "syscall"
+    "exec"
 )
 
 // проверяем файл на существование
@@ -262,6 +267,21 @@ func getrecurlist(mask, except string) (out []string) {
     return
 }
 
+// Определяем — это серое изображение?
+func isgray(im *gd.Image) bool {
+    for x := im.Sx() - 1; x >= 0; x-- {
+        for y := im.Sy() - 1; y >= 0; y-- {
+            c := im.ColorsForIndex(im.GetPixel(x, y))
+
+            if c["red"] != c["green"] || c["red"] != c["blue"] {
+                return false
+            }
+        }
+    }
+
+    return true
+}
+
 func main() {
     options := parseoptions()
 
@@ -352,6 +372,48 @@ func main() {
     // Качество сохраняемой картинки
     oQuality, _ := strconv.Atoi(options["quality"])
 
+    // Это временное имя для утилиты jpegtran, которую распаковываем из архива
+    jtexe := fp.Join(os.TempDir(), "corner-bolk-jpegtran.exe")
+    defer os.Remove(jtexe)
+
+    // Распаковываем jpegtran
+    if len(oFileList) > 0 {
+        jtout, e := os.OpenFile(jtexe, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
+
+        if e == nil {
+            defer jtout.Close()
+
+            jtranstr := s.NewReader(*jpegtran.Jpegtran())
+            jtran := git85.NewDecoder(jtranstr)
+            jtran = bzip2.NewReader(jtran)
+
+            buf := make([]byte, 1024)
+
+            for {
+                n, _ := jtran.Read(buf)
+
+                if n == 0 {
+                    break
+                }
+
+                jtout.Write(buf[0:n])
+            }
+        }
+    }
+
+    // Пишем профайл для ч/б изображения
+    oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
+    profile, e := os.OpenFile(oProfile, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
+    if e == nil {
+        defer profile.Close()
+        profile.WriteString("0:   0  0 0 0 ;\n0:   1  8 0 2 ;\n0:   9 63 0 2 ;\n0:   1 63 2 1 ;\n0:   1 63 1 0;")
+    }
+
+    defer os.Remove(oProfile)
+
+    oTmpName := fp.Join(os.TempDir(), "cornet-bolk-" + strconv.Itoa(syscall.Getpid()) + "-")
+    oSaved := int64(0)
+
     for num, name := range oFileList {
         im := gd.CreateFromJpeg(name)
         im.AlphaBlending(true)
@@ -388,7 +450,49 @@ func main() {
             }
         }
 
-        im.Jpeg(name, oQuality)
+        tmpname := oTmpName + fp.Base(name)
+        gray := isgray(im)
+
+        im.Jpeg(tmpname, oQuality)
         im.Destroy()
+        im = nil
+
+        // Оптимизация jpeg
+        stat, _ := os.Stat(tmpname)
+        cmdkeys := []string{"-copy none", "-outfile", name}
+
+        // Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
+        if stat.Size > 10 * 1024 {
+            cmdkeys = append(cmdkeys, "-progressive")
+        }
+
+        if gray {
+            cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
+        }
+
+        cmdkeys = append(cmdkeys, "-optimize", tmpname)
+
+        fmt.Println(cmdkeys)
+
+        // Запускаем jpegtran
+        cmd, _ := exec.Run(
+            jtexe,
+            cmdkeys,
+            []string{},
+            wd,
+            exec.DevNull,
+            exec.DevNull,
+            exec.DevNull)
+
+        cmd.Wait(0)
+        outstat, _ := os.Stat(name)
+
+        oSaved += stat.Size - outstat.Size
+
+        os.Remove(tmpname)
+    }
+
+    if oSaved > 0 {
+        fmt.Printf("Saved %d bytes after optimization.\n", oSaved)
     }
 }
