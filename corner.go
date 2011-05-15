@@ -333,8 +333,11 @@ func main() {
     if oLen > 1 {
         prec := strconv.Itoa(len(strconv.Itoa(oLen)))
         oNameMask += ".%0" + prec + "d.jpg"
+
+        fmt.Printf("Found %d JPEG files.\n", oLen)
     } else {
         oNameMask += ".jpg"
+        fmt.Println("Found 1 JPEG file.")
     }
 
     // Нормализация background, должны получиться три hex числа
@@ -377,27 +380,26 @@ func main() {
     defer os.Remove(jtexe)
 
     // Распаковываем jpegtran
-    if len(oFileList) > 0 {
-        jtout, e := os.OpenFile(jtexe, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
+    jtout, e := os.OpenFile(jtexe, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
 
-        if e == nil {
-            defer jtout.Close()
+    if e == nil {
+        defer jtout.Close()
 
-            jtranstr := s.NewReader(*jpegtran.Jpegtran())
-            jtran := git85.NewDecoder(jtranstr)
-            jtran = bzip2.NewReader(jtran)
+        // Берём строку с jpegtran, раскодируем его из git85, потом распаковываем
+        // из bzip2
+        jtranstr := s.NewReader(*jpegtran.Jpegtran())
+        jtran := git85.NewDecoder(jtranstr)
+        jtran = bzip2.NewReader(jtran)
 
-            buf := make([]byte, 1024)
+        buf := make([]byte, 4196)
 
-            for {
-                n, _ := jtran.Read(buf)
-
-                if n == 0 {
-                    break
-                }
-
-                jtout.Write(buf[0:n])
+        for {
+            n, _ := jtran.Read(buf)
+            if n == 0 {
+                break
             }
+
+            jtout.Write(buf[0:n])
         }
     }
 
@@ -414,7 +416,10 @@ func main() {
     oTmpName := fp.Join(os.TempDir(), "cornet-bolk-" + strconv.Itoa(syscall.Getpid()) + "-")
     oSaved := int64(0)
 
+    // Цикл обработки файлов
     for num, name := range oFileList {
+        fmt.Printf("Processing %s ... ", name)
+
         im := gd.CreateFromJpeg(name)
         im.AlphaBlending(true)
 
@@ -443,7 +448,7 @@ func main() {
         }
 
         if options["keep-name"] == "0" {
-            if len(oFileList) > 1 {
+            if oLen > 1 {
                 name = fmt.Sprintf(oNameMask, num + 1)
             } else {
                 name = oNameMask
@@ -466,13 +471,12 @@ func main() {
             cmdkeys = append(cmdkeys, "-progressive")
         }
 
+        // Если файл серый, то оптимизируем его как серый
         if gray {
             cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
         }
 
         cmdkeys = append(cmdkeys, "-optimize", tmpname)
-
-        fmt.Println(cmdkeys)
 
         // Запускаем jpegtran
         cmd, _ := exec.Run(
@@ -484,12 +488,13 @@ func main() {
             exec.DevNull,
             exec.DevNull)
 
-        cmd.Wait(0)
+        cmd.Close()
         outstat, _ := os.Stat(name)
 
         oSaved += stat.Size - outstat.Size
 
         os.Remove(tmpname)
+        fmt.Println("done")
     }
 
     if oSaved > 0 {
