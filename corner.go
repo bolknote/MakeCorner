@@ -369,6 +369,7 @@ func main() {
 
         corner.Fill(0, 0, back)
         corner.FilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, trans)
+        corner.Smooth(5)
         corner.GaussianBlur()
     }
 
@@ -488,6 +489,9 @@ func main() {
             exec.DevNull,
             exec.DevNull,
             exec.DevNull)
+
+        // идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
+        // не забыть прочитать EXIF из файла
 
         cmd.Close()
         outstat, _ := os.Stat(name)

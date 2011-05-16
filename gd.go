@@ -14,6 +14,7 @@ import "path/filepath"
 import "strings"
 import "io/ioutil"
 import . "unsafe"
+//import "fmt"
 
 type Image struct {img C.gdImagePtr}
 type Font  struct {fnt C.gdFontPtr}
@@ -668,3 +669,14 @@ func (p *Image) Emboss() {
     filter := [3][3]float32{{1.5, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -1.5}}
     p.Convolution(filter, 1, 127)
 }
+
+func (p *Image) MeanRemoval() {
+    filter := [3][3]float32{{-1, -1, -1}, {-1, 9, -1}, {-1, -1, -1}}
+    p.Convolution(filter, 1, 0)
+}
+
+func (p *Image) Smooth(weight float32) {
+    filter := [3][3]float32{{1, 1, 1}, {1, weight, 1}, {1, 1, 1}}
+    p.Convolution(filter, weight + 8, 0)
+}
+
