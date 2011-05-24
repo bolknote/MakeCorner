@@ -370,6 +370,7 @@ func main() {
         corner.Fill(0, 0, back)
         corner.FilledEllipse(oRadius + 6, oRadius + 6, oRadius << 1, oRadius << 1, trans)
 
+        // Второй параметр — сохранять ли уровень alpha, нам надо сохранять
         corner.StackBlur(2, true)
     }
 
@@ -445,9 +446,9 @@ func main() {
 
         if R := oRadius; R > 0 {
             corner.Copy(im, 0, 0,           6 - shift, 6 - shift,           R + shift, R + shift)
-            corner.Copy(im, 0, h - R,       6 - shift, R + 7 + shift,       R, R)
-            corner.Copy(im, w - R, 0,       R + 7 + shift, 6 - shift,       R, R)
-            corner.Copy(im, w - R, h - R,   R + 7 + shift, R + 7 + shift,   R, R)
+            corner.Copy(im, 0, h - R,       6 - shift, R + 7 + shift,       R + shift, R + shift)
+            corner.Copy(im, w - R, 0,       R + 7 + shift, 6 - shift,       R + shift, R + shift)
+            corner.Copy(im, w - R, h - R,   R + 7 + shift, R + 7 + shift,   R + shift, R + shift)
         }
 
         // Если имена не сохраняем, то заменяем на сгенерированное имя
