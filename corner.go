@@ -361,16 +361,16 @@ func main() {
     oRadius, _ := strconv.Atoi(options["radius"])
 
     if oRadius > 0 {
-        corner = gd.CreateTrueColor(oRadius * 2 + 1,  oRadius * 2 + 1)
+        corner = gd.CreateTrueColor(oRadius << 1 + 13,  oRadius << 1 + 13)
         corner.AlphaBlending(false)
         corner.SaveAlpha(true)
         trans := corner.ColorAllocateAlpha(0, 0, 0, 127)
         back  := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
         corner.Fill(0, 0, back)
-        corner.FilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, trans)
-        corner.Smooth(5)
-        corner.GaussianBlur()
+        corner.FilledEllipse(oRadius + 6, oRadius + 6, oRadius << 1, oRadius << 1, trans)
+
+        corner.StackBlur(2, true)
     }
 
     // Качество сохраняемой картинки
@@ -441,11 +441,13 @@ func main() {
             w, h = sx, sy
         }
 
+        shift := 1
+
         if R := oRadius; R > 0 {
-            corner.Copy(im, 0, 0, 0, 0, R, R)
-            corner.Copy(im, 0, h - R, 0, R + 1, R, R)
-            corner.Copy(im, w - R, 0, R + 1, 0, R, R)
-            corner.Copy(im, w - R, h - R, R + 1, R + 1, R, R)
+            corner.Copy(im, 0, 0,           6 - shift, 6 - shift,           R + shift, R + shift)
+            corner.Copy(im, 0, h - R,       6 - shift, R + 7 + shift,       R, R)
+            corner.Copy(im, w - R, 0,       R + 7 + shift, 6 - shift,       R, R)
+            corner.Copy(im, w - R, h - R,   R + 7 + shift, R + 7 + shift,   R, R)
         }
 
         // Если имена не сохраняем, то заменяем на сгенерированное имя
