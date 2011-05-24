@@ -1,1 +1,3 @@
 Переписываю свой проект MakeCorner на Go.
+
+Библиотека gd.go — из проекта https://github.com/bolknote/go-gd
