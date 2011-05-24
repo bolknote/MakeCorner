@@ -1,3 +1,6 @@
+// Evgeny Stepanischev. BOLK. 2011
+// http://bolknote.ru
+// INI parser (Go)
 package ini
 
 import (
