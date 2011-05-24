@@ -680,3 +680,227 @@ func (p *Image) Smooth(weight float32) {
     p.Convolution(filter, weight + 8, 0)
 }
 
+// Stack Blur Algorithm by Mario Klingemann <mario@quasimondo.com>
+// "Go" language port by Evgeny Stepanischev http://bolknote.ru
+func (img *Image) StackBlur(radius int, keepalpha bool) {
+    if radius < 1 {
+        return
+    }
+
+    pix := img.getpixelfunc()
+
+    w, h := int(img.Sx()), int(img.Sy())
+    wm, hm, wh, div := w-1, h-1, w * h, radius * 2 + 1
+
+    len := 4
+    if keepalpha {
+        len = 3
+    }
+
+    rgba := make([][]byte, len)
+    for i := 0; i<len; i++ {
+        rgba[i] = make([]byte, wh)
+    }
+
+    vmin := make([]int, max(w, h))
+
+    var x, y, i, yp, yi, yw, stackpointer, stackstart, rbs int
+    var sir *[4]byte
+
+    divsum := (div + 1) >> 1
+    divsum *= divsum
+
+    dv := make([]byte, 256 * divsum)
+
+    for i = 0; i<256 * divsum; i++ {
+        dv[i] = byte(i / divsum)
+    }
+
+    yw, yi = 0, 0
+    stack := make([][4]byte, div)
+    r1 := radius + 1
+
+    for y = 0; y<h; y++ {
+        sum    := make([]int, len)
+        insum  := make([]int, len)
+        outsum := make([]int, len)
+
+        for i = -radius; i<=radius; i++ {
+            coords := yi + min(wm, max(i, 0))
+            yc := coords / w
+            xc := coords % w
+
+            p := img.ColorsForIndex(pix(img, xc, yc))
+
+            sir = &stack[i + radius]
+            sir[0] = (byte)(p["red"])
+            sir[1] = (byte)(p["green"])
+            sir[2] = (byte)(p["blue"])
+            sir[3] = (byte)(p["alpha"])
+
+            rbs = r1 - abs(i)
+            for i := 0; i<len; i++ {
+                sum[i] += int(sir[i]) * rbs
+            }
+
+            if i > 0 {
+                for i := 0; i<len; i++ {
+                    insum[i] += int(sir[i])
+                }
+            } else {
+                for i := 0; i<len; i++ {
+                    outsum[i] += int(sir[i])
+                }
+            }
+        }
+
+        stackpointer = radius
+
+        for x = 0; x<w; x++ {
+            for i := 0; i<len; i++ {
+                rgba[i][yi] = dv[sum[i]]
+                sum[i] -= outsum[i]
+            }
+
+            stackstart = stackpointer - radius + div
+            sir = &stack[stackstart % div]
+
+            for i := 0; i<len; i++ {
+                outsum[i] -= int(sir[i])
+            }
+
+            if y == 0 {
+                vmin[x] = min(x + radius + 1, wm)
+            }
+
+            coords := yw + vmin[x]
+            yc := coords / w
+            xc := coords % w
+
+            p := img.ColorsForIndex(pix(img, xc, yc))
+
+            sir[0] = byte(p["red"])
+            sir[1] = byte(p["green"])
+            sir[2] = byte(p["blue"])
+            sir[3] = byte(p["alpha"])
+
+            for i := 0; i<len; i++ {
+                insum[i] += int(sir[i])
+                sum[i] += insum[i]
+            }
+
+            stackpointer = (stackpointer + 1) % div
+            sir = &stack[stackpointer % div]
+
+            for i := 0; i<len; i++ {
+                outsum[i] += int(sir[i])
+                insum[i] -= int(sir[i])
+            }
+
+            yi++
+        }
+
+        yw += w
+    }
+
+    for x = 0; x<w; x++ {
+        sum    := make([]int, len)
+        insum  := make([]int, len)
+        outsum := make([]int, len)
+
+        yp = -radius * w
+
+        for i = -radius; i <= radius; i++ {
+            yi = max(0, yp) + x
+
+            sir = &stack[i + radius]
+
+            for i := 0; i<len; i++ {
+                sir[i] = rgba[i][yi]
+            }
+            rbs = r1 - abs(i)
+
+            for i := 0; i<len; i++ {
+                sum[i] += int(rgba[i][yi]) * rbs
+            }
+
+            if i > 0 {
+                for i := 0; i<len; i++ {
+                    insum[i] += int(sir[i])
+                }
+            } else {
+                for i := 0; i<len; i++ {
+                    outsum[i] += int(sir[i])
+                }
+            }
+
+            if i < hm {
+                yp += w
+            }
+        }
+
+        yi = x
+
+        stackpointer = radius
+
+        for y = 0; y < h; y++ {
+            var alpha byte
+
+            if keepalpha {
+                pxl := img.ColorsForIndex(pix(img, yi % w, yi / w))
+                alpha = byte(pxl["alpha"])
+            } else {
+                alpha = dv[sum[3]]
+            }
+
+            newpxl := img.ColorAllocateAlpha(int(dv[sum[0]]), int(dv[sum[1]]), int(dv[sum[2]]), int(alpha))
+            if newpxl == -1 {
+                newpxl = img.ColorClosestAlpha(int(dv[sum[0]]), int(dv[sum[1]]), int(dv[sum[2]]), int(alpha))
+            }
+
+            img.SetPixel(yi % w, yi / w, newpxl)
+
+            for i := 0; i<len; i++ {
+                sum[i] -= outsum[i]
+            }
+
+            stackstart = stackpointer - radius + div
+            sir = &stack[stackstart % div]
+
+            for i := 0; i<len; i++ {
+                outsum[i] -= int(sir[i])
+            }
+
+            if x == 0 {
+                vmin[y] = min(y + r1, hm) * w
+            }
+
+            p := x + vmin[y]
+
+            for i := 0; i<len; i++ {
+                sir[i] = rgba[i][p]
+                insum[i] += int(sir[i])
+                sum[i] += insum[i]
+            }
+
+            stackpointer = (stackpointer + 1) % div
+            sir = &stack[stackpointer]
+
+            for i := 0; i<len; i++ {
+                outsum[i] += int(sir[i])
+                insum[i] -= int(sir[i])
+            }
+
+            yi += w
+        }
+    }
+}
+
+func abs(i int) int {
+    if i < 0 {
+        return -i
+    }
+
+    return i
+}
+
