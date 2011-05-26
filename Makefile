@@ -10,8 +10,7 @@ CGOFILES=\
 	gd.go
 
 CGO_CFLAGS=-I${GDPATH}/include
-CGO_LDFLAGS+=-L${GOPATH}/lib
-CGO_LDFLAGS=-lgd
+CGO_LDFLAGS+=-lgd
 
 include ${GOROOT}/src/Make.pkg
 
