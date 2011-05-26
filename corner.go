@@ -17,6 +17,7 @@ import (
     "compress/bzip2"
     "encoding/git85"
     "syscall"
+    "runtime"
     "exec"
 )
 
@@ -24,6 +25,13 @@ import (
 func fileexists(name string) bool {
     _, e := os.Stat(name)
     return e == nil
+}
+
+// выставляем количество потоков = количествую процессоров
+func setmaxprocs() {
+    if n, _ := syscall.SysctlUint32("hw.ncpu"); n > 0 {
+        runtime.GOMAXPROCS(int(n))
+    }
 }
 
 // проверим как называется ini-файл, если он есть
@@ -283,6 +291,9 @@ func isgray(im *gd.Image) bool {
 }
 
 func main() {
+    // выставляем правильное количество процессоров
+    setmaxprocs()
+
     options := parseoptions()
 
     // Показываем силу му-у-у-у-у?
@@ -381,39 +392,49 @@ func main() {
     jtexe := fp.Join(os.TempDir(), "corner-bolk-jpegtran.exe")
     defer os.Remove(jtexe)
 
-    // Распаковываем jpegtran
-    jtout, e := os.OpenFile(jtexe, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
-
-    if e == nil {
-        defer jtout.Close()
-
-        // Берём строку с jpegtran, раскодируем его из git85, потом распаковываем
-        // из bzip2
-        jtranstr := s.NewReader(*jpegtran.Jpegtran())
-        jtran := git85.NewDecoder(jtranstr)
-        jtran = bzip2.NewReader(jtran)
-
-        buf := make([]byte, 4196)
-
-        for {
-            n, _ := jtran.Read(buf)
-            if n == 0 {
-                break
-            }
-
-            jtout.Write(buf[0:n])
-        }
-    }
-
-    // Пишем профайл для ч/б изображения, профиль цветного не поддерживается «Оперой»
+    // Временное имя для ч/б профиля
     oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
-    profile, e := os.OpenFile(oProfile, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
-    if e == nil {
-        defer profile.Close()
-        profile.WriteString("0:   0  0 0 0 ;\n0:   1  8 0 2 ;\n0:   9 63 0 2 ;\n0:   1 63 2 1 ;\n0:   1 63 1 0;")
-    }
-
     defer os.Remove(oProfile)
+
+    // Распаковываем jpegtran и пишем профиль для ч/б
+    jtchan := make(chan bool)
+
+    // Флаг, что jpegtran и профили для ниго готовы к работе
+    jtready := false
+
+    go func() {
+        jtout, e := os.OpenFile(jtexe, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
+
+        if e == nil {
+            defer jtout.Close()
+
+            // Берём строку с jpegtran, раскодируем его из git85, потом распаковываем
+            // из bzip2
+            jtranstr := s.NewReader(*jpegtran.Jpegtran())
+            jtran := git85.NewDecoder(jtranstr)
+            jtran = bzip2.NewReader(jtran)
+
+            buf := make([]byte, 4196)
+
+            for {
+                n, _ := jtran.Read(buf)
+                if n == 0 {
+                    break
+                }
+
+                jtout.Write(buf[0:n])
+            }
+        }
+
+        // Пишем профайл для ч/б изображения, профиль цветного не поддерживается «Оперой»
+        profile, e := os.OpenFile(oProfile, os.O_WRONLY | os.O_TRUNC | os.O_CREATE, 0777)
+        if e == nil {
+            defer profile.Close()
+            profile.WriteString("0:   0  0 0 0 ;\n0:   1  8 0 2 ;\n0:   9 63 0 2 ;\n0:   1 63 2 1 ;\n0:   1 63 1 0;")
+        }
+
+        jtchan <- true
+    }()
 
     oTmpName := fp.Join(os.TempDir(), "cornet-bolk-" + strconv.Itoa(syscall.Getpid()) + "-")
     oSaved := int64(0)
@@ -482,6 +503,11 @@ func main() {
         }
 
         cmdkeys = append(cmdkeys, "-optimize", tmpname)
+
+        // проверяем, что jpegtran готов к работе
+        if !jtready {
+            jtready = <- jtchan
+        }
 
         // Запускаем jpegtran
         cmd, _ := exec.Run(
