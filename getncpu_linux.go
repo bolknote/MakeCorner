@@ -1,12 +1,10 @@
 package main
 
-import "runtime"
 import "os"
 import "bufio"
 import "strings"
 
-// выставляем количество потоков = количеству процессоров
-func setmaxprocs() {
+func getncpu() int {
     const cpuinfo = "/proc/cpuinfo"
     n := 0
 
@@ -29,7 +27,5 @@ func setmaxprocs() {
         }
     }
 
-    if n > 0 {
-        runtime.GOMAXPROCS(n)
-    }
+    return n
 }

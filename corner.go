@@ -17,6 +17,7 @@ import (
     "compress/bzip2"
     "encoding/git85"
     "exec"
+    "runtime"
 )
 
 // проверяем файл на существование
@@ -283,7 +284,9 @@ func isgray(im *gd.Image) bool {
 
 func main() {
     // выставляем правильное количество процессоров
-    //setmaxprocs()
+    if n := getncpu(); n > 0 {
+        runtime.GOMAXPROCS(n)
+    }
 
     options := parseoptions()
 
