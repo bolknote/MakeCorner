@@ -18,6 +18,7 @@ import (
     "encoding/git85"
     "exec"
     "runtime"
+    "getncpu"
 )
 
 // проверяем файл на существование
@@ -284,7 +285,7 @@ func isgray(im *gd.Image) bool {
 
 func main() {
     // выставляем правильное количество процессоров
-    if n := getncpu(); n > 0 {
+    if n := getncpu.Getncpu(); n > 0 {
         runtime.GOMAXPROCS(n)
     }
 

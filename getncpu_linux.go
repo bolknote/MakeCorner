@@ -1,10 +1,10 @@
-package main
+package ncpu
 
 import "os"
 import "bufio"
 import "strings"
 
-func getncpu() int {
+func Getncpu() int {
     const cpuinfo = "/proc/cpuinfo"
     n := 0
 
