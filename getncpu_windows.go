@@ -1,7 +1,7 @@
-package main
+package getncpu
 import "syscall"
 
-func getncpu() int {
+func Getncpu() int {
     n, _ := strconv.Atoi(os.Getenv("NUMBER_OF_PROCESSORS")
     return n
 }
