@@ -284,11 +284,6 @@ func isgray(im *gd.Image) bool {
 }
 
 func main() {
-    // выставляем правильное количество процессоров
-    if n := getncpu.Getncpu(); n > 0 {
-        runtime.GOMAXPROCS(n)
-    }
-
     options := parseoptions()
 
     // Показываем силу му-у-у-у-у?
@@ -390,6 +385,22 @@ func main() {
     // Временное имя для ч/б профиля
     oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
     defer os.Remove(oProfile)
+
+    // Выставляем количество процессов, которые могут выполняться одновременно
+    // равное количеству процессоров
+    if n := getncpu.Getncpu(); n > 0 {
+        runtime.GOMAXPROCS(n)
+    }
+
+    // Выводим сколько процессоров мы намерены использовать
+    {
+        n := runtime.GOMAXPROCS(-1)
+        if n == 1 {
+            fmt.Println("1 CPU will be use.")
+        } else {
+            fmt.Printf("%d CPUs will be use.\n", n)
+        }
+    }
 
     // Распаковываем jpegtran и пишем профиль для ч/б
     jtchan := make(chan bool)
