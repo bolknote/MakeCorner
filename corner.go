@@ -16,8 +16,6 @@ import (
     "jpegtran"
     "compress/bzip2"
     "encoding/git85"
-    "syscall"
-    "runtime"
     "exec"
 )
 
@@ -25,26 +23,6 @@ import (
 func fileexists(name string) bool {
     _, e := os.Stat(name)
     return e == nil
-}
-
-// выставляем количество потоков = количествую процессоров
-func setmaxprocs() {
-    switch syscall.OS {
-    case "windows":
-        if strn := os.Getenv("NUMBER_OF_PROCESSORS"); strn != "" {
-            if n, _ := strconv.Atoi(strn); n > 0 {
-                runtime.GOMAXPROCS(n)
-            }
-        }
-
-    case "darwin":
-        fallthrough
-
-    case "freebsd":
-        if n, _ := syscall.SysctlUint32("hw.ncpu"); n > 0 {
-            runtime.GOMAXPROCS(int(n))
-        }
-    }
 }
 
 // проверим как называется ini-файл, если он есть
@@ -305,7 +283,7 @@ func isgray(im *gd.Image) bool {
 
 func main() {
     // выставляем правильное количество процессоров
-    setmaxprocs()
+    //setmaxprocs()
 
     options := parseoptions()
 
