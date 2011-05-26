@@ -4,7 +4,7 @@ GOARCH=amd64
 
 include ${GOROOT}/src/Make.inc
 
-TARG=gd
+TARG=corner
 
 CGOFILES=\
 	gd.go
@@ -19,6 +19,7 @@ include ${GOROOT}/src/Make.pkg
 
 corner: install corner.go
 	$(GC) ini.go
+	$(GC) maxproc_$(GOOS).go
 	$(GC) jpegtran.go
 	$(GC) -I. corner.go
 	$(LD) -L. -o $@ corner.$O
