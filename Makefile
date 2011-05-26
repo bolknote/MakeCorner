@@ -13,8 +13,6 @@ CGO_CFLAGS=-I${GDPATH}/include
 CGO_LDFLAGS+=-L${GOPATH}/lib
 CGO_LDFLAGS=-lgd
 
-CLEANFILES+=ini corner jpegtran getncpu
-
 include ${GOROOT}/src/Make.pkg
 
 corner: install corner.go
