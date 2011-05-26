@@ -6,7 +6,7 @@ import "bufio"
 import "strings"
 import "strconv"
 
-// выставляем количество потоков = количествую процессоров
+// выставляем количество потоков = количеству процессоров
 func setmaxprocs() {
     const cpuinfo = "/Users/bolk/Проекты/Corner/cpuinfo"
 
