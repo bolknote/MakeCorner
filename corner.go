@@ -29,8 +29,21 @@ func fileexists(name string) bool {
 
 // выставляем количество потоков = количествую процессоров
 func setmaxprocs() {
-    if n, _ := syscall.SysctlUint32("hw.ncpu"); n > 0 {
-        runtime.GOMAXPROCS(int(n))
+    switch syscall.OS {
+    case "windows":
+        if strn := os.Getenv("NUMBER_OF_PROCESSORS"); strn != "" {
+            if n, _ := strconv.Atoi(strn); n > 0 {
+                runtime.GOMAXPROCS(n)
+            }
+        }
+
+    case "darwin":
+        fallthrough
+
+    case "freebsd":
+        if n, _ := syscall.SysctlUint32("hw.ncpu"); n > 0 {
+            runtime.GOMAXPROCS(int(n))
+        }
     }
 }
 
@@ -436,7 +449,7 @@ func main() {
         jtchan <- true
     }()
 
-    oTmpName := fp.Join(os.TempDir(), "cornet-bolk-" + strconv.Itoa(syscall.Getpid()) + "-")
+    oTmpName := fp.Join(os.TempDir(), "cornet-bolk-" + strconv.Itoa(os.Getpid()) + "-")
     oSaved := int64(0)
 
     // Цикл обработки файлов
