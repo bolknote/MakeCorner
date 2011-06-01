@@ -272,7 +272,7 @@ func getrecurlist(mask, except string) (out []string) {
 func isgray(im *gd.Image) bool {
     for x := im.Sx() - 1; x >= 0; x-- {
         for y := im.Sy() - 1; y >= 0; y-- {
-            c := im.ColorsForIndex(im.GetPixel(x, y))
+            c := im.ColorsForIndex(im.ColorAt(x, y))
 
             if c["red"] != c["green"] || c["red"] != c["blue"] {
                 return false
@@ -362,17 +362,25 @@ func main() {
     oRadius, _ := strconv.Atoi(options["radius"])
 
     if oRadius > 0 {
-        corner = gd.CreateTrueColor(oRadius << 1 + 13,  oRadius << 1 + 13)
+        corner = gd.CreateTrueColor(oRadius << 1 + 2,  oRadius << 1 + 2)
         corner.AlphaBlending(false)
-        corner.SaveAlpha(true)
-        trans := corner.ColorAllocateAlpha(0, 0, 0, 127)
+        //corner.SaveAlpha(true)
+        trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
         back  := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
-        corner.Fill(0, 0, back)
-        corner.FilledEllipse(oRadius + 6, oRadius + 6, oRadius << 1, oRadius << 1, trans)
+        corner.Fill(0, 0, trans)
+        corner.SmoothFilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, back)
 
-        // Второй параметр — сохранять ли уровень alpha, нам надо сохранять
-        corner.StackBlur(2, true)
+        // инвертируем прозрачность пикселей
+        for x := 0; x<corner.Sx(); x++ {
+            for y := 0; y<corner.Sy(); y++ {
+                c := corner.ColorsForIndex(corner.ColorAt(x,y))
+                c["alpha"] = 127 - c["alpha"]
+
+                nc := corner.ColorAllocateAlpha(c["red"], c["green"], c["blue"], c["alpha"])
+                corner.SetPixel(x, y, nc)
+            }
+        }
     }
 
     // Качество сохраняемой картинки
@@ -469,13 +477,11 @@ func main() {
             w, h = sx, sy
         }
 
-        shift := 1
-
-        if R := oRadius; R > 0 {
-            corner.Copy(im, 0, 0,           6 - shift, 6 - shift,           R + shift, R + shift)
-            corner.Copy(im, 0, h - R,       6 - shift, R + 7 + shift,       R + shift, R + shift)
-            corner.Copy(im, w - R, 0,       R + 7 + shift, 6 - shift,       R + shift, R + shift)
-            corner.Copy(im, w - R, h - R,   R + 7 + shift, R + 7 + shift,   R + shift, R + shift)
+        if R := oRadius + 1; R > 1 {
+            corner.Copy(im, 0, 0,           0,     0,       R, R)
+            corner.Copy(im, 0, h - R,       0,     R,       R, R)
+            corner.Copy(im, w - R, 0,       R,     0,       R, R)
+            corner.Copy(im, w - R, h - R,   R,     R,       R, R)
         }
 
         // Если имена не сохраняем, то заменяем на сгенерированное имя
