@@ -19,6 +19,7 @@ import (
     "exec"
     "runtime"
     "getncpu"
+    "math"
 )
 
 // проверяем файл на существование
@@ -283,6 +284,73 @@ func isgray(im *gd.Image) bool {
     return true
 }
 
+// функция грубой отрисовки части дуги окружности
+// по алгоритму Ulrich Mierendorf (imageSmoothArc_optimized)
+func smootharc(p *gd.Image, cx, cy, a, b float64, fillColor gd.Color, start, stop, seg float64) {
+    color := p.ColorsForIndex(fillColor)
+    var xp, yp, xa, ya float64
+
+    switch seg {
+        case 0:
+            xp, yp, xa, ya = 1, -1, 1, -1
+        case 1:
+            xp, yp, xa, ya = -1, -1, 0, -1
+        case 2:
+            xp, yp, xa, ya = -1, 1, 0, 0
+        case 3:
+            xp, yp, xa, ya = 1, 1, 1, 0
+    }
+
+    for x := float64(0); x <= a; x++ {
+        y := b * math.Sqrt(1 - (x*x)/(a*a))
+        error := y - float64(int(y))
+        y = float64(int(y))
+
+        alpha := int(127 - float64(127 - color["alpha"]) * error)
+        diffColor := p.ColorExactAlpha(color["red"], color["green"], color["blue"], alpha)
+
+        xx := int(cx + xp * x + xa)
+
+        p.SetPixel(xx, int(cy + yp * (y + 1) + ya), diffColor)
+        p.Line(xx, int(cy + yp * y + ya), xx, int(cy + ya), fillColor)
+    }
+
+    for y := float64(0); y < b; y++ {
+        x := a * math.Sqrt(1 - (y*y)/(b*b))
+        error := x - float64(int(x))
+        x = float64(int(x))
+
+        alpha := int(127 - float64(127 - color["alpha"]) * error)
+        diffColor := p.ColorExactAlpha(color["red"], color["green"], color["blue"], alpha)
+        p.SetPixel(int(cx + xp * (x + 1) + xa), int(cy + yp * y + ya), diffColor)
+    }
+}
+
+// округление
+func round(f float64) float64 {
+    if f - float64(int(f)) >= 0.5 {
+        return math.Ceil(f)
+    }
+
+    return math.Floor(f)
+}
+
+
+// Эллипс с антиалиасингом
+// по алгоритму Ulrich Mierendorf (imageSmoothArc_optimized)
+func smoothellipse(p *gd.Image, cx, cy, r int, c gd.Color) {
+    for i := float64(0); i < 4; i++ {
+        stop := (i + 1) * math.Pi / 2
+
+        if stop / 2 < math.Pi * 2 {
+            smootharc(p, float64(cx), float64(cy), float64(r), float64(r), c, 0, stop, i)
+        } else {
+            smootharc(p, float64(cx), float64(cy), float64(r), float64(r), c, 0, math.Pi * 2, i)
+            break
+        }
+    }
+}
+
 func main() {
     options := parseoptions()
 
@@ -364,12 +432,13 @@ func main() {
     if oRadius > 0 {
         corner = gd.CreateTrueColor(oRadius << 1 + 2,  oRadius << 1 + 2)
         corner.AlphaBlending(false)
-        //corner.SaveAlpha(true)
+        corner.SaveAlpha(true)
         trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
         back  := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
         corner.Fill(0, 0, trans)
-        corner.SmoothFilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, back)
+        //corner.SmoothFilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, back)
+        smoothellipse(corner, oRadius, oRadius + 1, oRadius, back)
 
         // инвертируем прозрачность пикселей
         for x := 0; x<corner.Sx(); x++ {
