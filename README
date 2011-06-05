@@ -5,3 +5,11 @@
 Зависимости:
  * http://ring.nict.go.jp/archives/graphics/gd/ (GD library)
  * http://www.ijg.org/ (jpegtran utility)
+
+ Компиляция:
+   Надо исправить четыре переменные в начале Makefile.
+
+   GOROOT — переменная, указывающая куда установлен Go
+   GDPATH — переменная, указывающая куда установлена GD
+   JPEGTRAN — переменная, указывающая на запускаемый файл jpegtran
+   GOARCH — архитектура машины (amd64, arm или 386)
