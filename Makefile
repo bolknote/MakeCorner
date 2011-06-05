@@ -1,7 +1,6 @@
 GOROOT=/Users/bolk/go
 GDPATH=/usr/local/Cellar/gd/2.0.36RC1
 JPEGTRAN=/usr/local/bin/jpegtran
-GOARCH=amd64
 
 include ${GOROOT}/src/Make.inc
 
