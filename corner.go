@@ -15,8 +15,6 @@ import (
 	"gd"
 	"jpegtran"
 	"exec"
-	"runtime"
-	"getncpu"
 	"math"
 )
 
@@ -459,22 +457,6 @@ func main() {
 	// Временное имя для ч/б профиля
 	oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
 	defer os.Remove(oProfile)
-
-	// Выставляем количество процессов, которые могут выполняться одновременно
-	// равное количеству процессоров
-	if n := getncpu.Getncpu(); n > 0 {
-		runtime.GOMAXPROCS(n)
-	}
-
-	// Выводим сколько процессоров мы намерены использовать
-	{
-		n := runtime.GOMAXPROCS(-1)
-		if n == 1 {
-			fmt.Println("1 CPU will be use.")
-		} else {
-			fmt.Printf("%d CPUs will be use.\n", n)
-		}
-	}
 
 	// Пишем профайл для ч/б изображения, профиль цветного не поддерживается «Оперой»
 	profile, e := os.OpenFile(oProfile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0777)
