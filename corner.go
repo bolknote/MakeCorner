@@ -492,7 +492,7 @@ func main() {
 
 			// Берём строку с jpegtran, раскодируем его из git85, потом распаковываем
 			// из bzip2
-			jtranstr := s.NewReader(*jpegtran.Jpegtran())
+			jtranstr := s.NewReader(jpegtran.Jpegtran)
 			jtran := git85.NewDecoder(jtranstr)
 			jtran = bzip2.NewReader(jtran)
 
