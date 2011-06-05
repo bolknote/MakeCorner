@@ -29,4 +29,4 @@ all: corner.go jpegtran.go ini.$O jpegtran.$O corner.$O
 	$(GC) -I. $^
 
 jpegtran.go:
-	gofmt -r="\"JT\" -> \"$(JPEGTRAN)\"" jpegtran-template.go > jpegtran.go
+	@echo "package jpegtran; const Jpegtran=\`$(JPEGTRAN)\`" > jpegtran.go
