@@ -12,11 +12,21 @@ CGOFILES=\
 CGO_CFLAGS=-I${GDPATH}/include
 CGO_LDFLAGS+=-lgd
 
+CLEANFILES+=jpegtran.go
+
 include ${GOROOT}/src/Make.pkg
 
-all: install corner.go
+ifeq ($(GOOS),windows)
+	EXT=.exe
+else
+	EXT=
+endif
+
+all: corner.go jpegtran.go ini.$O jpegtran.$O corner.$O
+	$(LD) -L. -o corner$(EXT) corner.$O
+
+%.$(O): %.go
+	$(GC) -I. $^
+
+jpegtran.go:
 	gofmt -r="\"JT\" -> \"$(JPEGTRAN)\"" jpegtran-template.go > jpegtran.go
-	$(GC) ini.go
-	$(GC) jpegtran.go
-	$(GC) -I. corner.go
-	$(LD) -L. -o corner corner.$O
