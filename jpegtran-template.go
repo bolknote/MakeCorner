@@ -1,3 +1,1 @@
-package jpegtran
-
-const Jpegtran = "JT"
+package jpegtran; const Jpegtran = "JT"
