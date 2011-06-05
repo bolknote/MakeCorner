@@ -16,6 +16,7 @@ import (
 	"jpegtran"
 	"exec"
 	"math"
+    "runtime"
 )
 
 // проверяем файл на существование
@@ -354,6 +355,10 @@ func main() {
 		moo()
 	}
 
+    if runtime.GOMAXPROCS(-1) > 1 {
+        runtime.GOMAXPROCS(3)
+    }
+
 	// Преобразование маски файлов в более традиционный для Go формат
 	regexp, _ := r.Compile(`(\{[^\}]+\})`)
 
@@ -422,30 +427,36 @@ func main() {
 	var corner *gd.Image
 	defer corner.Destroy()
 
-	oRadius, _ := strconv.Atoi(options["radius"])
+    coready := make(chan *gd.Image)
 
-	if oRadius > 0 {
-		corner = gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
-		corner.AlphaBlending(false)
-		corner.SaveAlpha(true)
-		trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
-		back := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
+    oRadius, _ := strconv.Atoi(options["radius"])
+    if oRadius > 0 {
+        go func() {
+	        oRadius, _ := strconv.Atoi(options["radius"])
 
-		corner.Fill(0, 0, trans)
-		//corner.SmoothFilledEllipse(oRadius, oRadius, oRadius << 1, oRadius << 1, back)
-		smoothellipse(corner, oRadius, oRadius+1, oRadius, back)
+		    corner = gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
+		    corner.AlphaBlending(false)
+		    corner.SaveAlpha(true)
+		    trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
+		    back := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
-		// инвертируем прозрачность пикселей
-		for x := 0; x < corner.Sx(); x++ {
-			for y := 0; y < corner.Sy(); y++ {
-				c := corner.ColorsForIndex(corner.ColorAt(x, y))
-				c["alpha"] = 127 - c["alpha"]
+		    corner.Fill(0, 0, trans)
+		    smoothellipse(corner, oRadius, oRadius+1, oRadius, back)
 
-				nc := corner.ColorAllocateAlpha(c["red"], c["green"], c["blue"], c["alpha"])
-				corner.SetPixel(x, y, nc)
-			}
-		}
-	}
+		    // инвертируем прозрачность пикселей
+		    for x := 0; x < corner.Sx(); x++ {
+			    for y := 0; y < corner.Sy(); y++ {
+				    c := corner.ColorsForIndex(corner.ColorAt(x, y))
+				    c["alpha"] = 127 - c["alpha"]
+
+				    nc := corner.ColorAllocateAlpha(c["red"], c["green"], c["blue"], c["alpha"])
+				    corner.SetPixel(x, y, nc)
+			    }
+		    }
+
+            coready <- corner
+        }()
+    }
 
 	// Качество сохраняемой картинки
 	oQuality, _ := strconv.Atoi(options["quality"])
@@ -492,11 +503,17 @@ func main() {
 			w, h = sx, sy
 		}
 
-		if R := oRadius + 1; R > 1 {
-			corner.Copy(im, 0, 0, 0, 0, R, R)
-			corner.Copy(im, 0, h-R, 0, R, R, R)
-			corner.Copy(im, w-R, 0, R, 0, R, R)
-			corner.Copy(im, w-R, h-R, R, R, R, R)
+        if oRadius > 0 {
+            if corner == nil {
+                corner = <- coready
+            }
+
+		    if R := oRadius + 1; R > 1 {
+			    corner.Copy(im, 0, 0, 0, 0, R, R)
+			    corner.Copy(im, 0, h-R, 0, R, R, R)
+			    corner.Copy(im, w-R, 0, R, 0, R, R)
+			    corner.Copy(im, w-R, h-R, R, R, R, R)
+            }
 		}
 
 		// Если имена не сохраняем, то заменяем на сгенерированное имя
