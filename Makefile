@@ -22,7 +22,7 @@ else
 	EXT=
 endif
 
-all: corner.go jpegtran.go ini.$O jpegtran.$O corner.$O
+all: corner.go ini.$O jpegtran.$O corner.$O
 	$(LD) -L. -o corner$(EXT) corner.$O
 
 %.$(O): %.go
