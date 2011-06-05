@@ -15,6 +15,9 @@ CGO_LDFLAGS+=-lgd
 include ${GOROOT}/src/Make.pkg
 
 corner: install corner.go
+	$(GC) jpegtran-convert.go
+	$(LD) -o jpegtran-convert jpegtran-convert.$O
+	./jpegtran-convert && unlink jpegtran-convert
 	$(GC) ini.go
 	$(GC) -o getncpu.$O getncpu_$(GOOS).go
 	$(GC) jpegtran.go
