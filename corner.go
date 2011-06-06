@@ -434,7 +434,7 @@ func main() {
         go func() {
 	        oRadius, _ := strconv.Atoi(options["radius"])
 
-		    corner = gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
+		    corner := gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
 		    corner.AlphaBlending(false)
 		    corner.SaveAlpha(true)
 		    trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
