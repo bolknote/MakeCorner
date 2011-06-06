@@ -17,6 +17,7 @@ import (
 	"exec"
 	"math"
     "runtime"
+    "bytes"
 )
 
 // проверяем файл на существование
@@ -464,9 +465,30 @@ func main() {
 	// Качество сохраняемой картинки
 	oQuality, _ := strconv.Atoi(options["quality"])
 
-	// Это временное имя для утилиты jpegtran, которую распаковываем из архива
-	jtexe := fp.Join(os.TempDir(), "corner-bolk-jpegtran.exe")
-	defer os.Remove(jtexe)
+    // проверяем, доступен ли jpegtran
+    // пробуем найти jpegtran
+    oJtname, oJt := func() (string, bool) {
+        if jpegtran.Jpegtran != "" {
+            if fileexists(jpegtran.Jpegtran) {
+                return jpegtran.Jpegtran, true
+            }
+
+            jtname := fp.Base(jpegtran.Jpegtran)
+
+            b := bytes.NewBufferString(os.Getenv("PATH"))
+            for {
+                if pth, e := b.ReadString(byte(fp.ListSeparator)); e == nil {
+                    if name := fp.Join(pth[:len(pth)-1], jtname); fileexists(name) {
+                        return name, true
+                    }
+                } else {
+                    break
+                }
+            }
+        }
+
+        return "", false
+    }()
 
 	// Временное имя для ч/б профиля
 	oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
@@ -478,9 +500,6 @@ func main() {
 		defer profile.Close()
 		profile.WriteString("0:   0  0 0 0 ;\n0:   1  8 0 2 ;\n0:   9 63 0 2 ;\n0:   1 63 2 1 ;\n0:   1 63 1 0;")
 	}
-
-    // проверяем, доступен ли нам jpegtran
-    oJt := fileexists(jpegtran.Jpegtran)
 
 	oTmpName := fp.Join(os.TempDir(), "cornet-bolk-"+strconv.Itoa(os.Getpid())+"-")
 	oSaved := int64(0)
@@ -558,7 +577,7 @@ func main() {
 
 		    // Запускаем jpegtran
 		    cmd, _ := exec.Run(
-			    jpegtran.Jpegtran,
+			    oJtname,
 			    cmdkeys,
 			    []string{},
 			    wd,
