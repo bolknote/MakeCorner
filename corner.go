@@ -434,6 +434,9 @@ func main() {
         go func() {
 	        oRadius, _ := strconv.Atoi(options["radius"])
 
+            // важно, что это локальная переменная, иначе будет
+            // баг — указатель будет уже не пустой, а уголки ещё
+            // не будут готовы
 		    corner := gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
 		    corner.AlphaBlending(false)
 		    corner.SaveAlpha(true)
@@ -475,6 +478,9 @@ func main() {
 		defer profile.Close()
 		profile.WriteString("0:   0  0 0 0 ;\n0:   1  8 0 2 ;\n0:   9 63 0 2 ;\n0:   1 63 2 1 ;\n0:   1 63 1 0;")
 	}
+
+    // проверяем, доступен ли нам jpegtran
+    oJt := fileexists(jpegtran.Jpegtran)
 
 	oTmpName := fp.Join(os.TempDir(), "cornet-bolk-"+strconv.Itoa(os.Getpid())+"-")
 	oSaved := int64(0)
@@ -525,48 +531,56 @@ func main() {
 			}
 		}
 
-		tmpname := oTmpName + fp.Base(name)
-		gray := isgray(im)
+        // Jpegtran доступен
+        if oJt {
+    		tmpname := oTmpName + fp.Base(name)
+	    	gray := isgray(im)
 
-		im.Jpeg(tmpname, oQuality)
-		im.Destroy()
-		im = nil
+		    im.Jpeg(tmpname, oQuality)
+		    im.Destroy()
+		    im = nil
 
-		// Оптимизация jpeg
-		stat, _ := os.Stat(tmpname)
-		cmdkeys := []string{"-copy none", "-outfile", name}
+		    // Оптимизация jpeg
+		    stat, _ := os.Stat(tmpname)
+		    cmdkeys := []string{"-copy none", "-outfile", name}
 
-		// Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
-		if stat.Size > 10*1024 {
-			cmdkeys = append(cmdkeys, "-progressive")
-		}
+		    // Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
+		    if stat.Size > 10*1024 {
+			    cmdkeys = append(cmdkeys, "-progressive")
+		    }
 
-		// Если файл серый, то оптимизируем его как серый
-		if gray {
-			cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
-		}
+		    // Если файл серый, то оптимизируем его как серый
+		    if gray {
+			    cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
+		    }
 
-		cmdkeys = append(cmdkeys, "-optimize", tmpname)
+		    cmdkeys = append(cmdkeys, "-optimize", tmpname)
 
-		// Запускаем jpegtran
-		cmd, _ := exec.Run(
-			jpegtran.Jpegtran,
-			cmdkeys,
-			[]string{},
-			wd,
-			exec.DevNull,
-			exec.DevNull,
-			exec.DevNull)
+		    // Запускаем jpegtran
+		    cmd, _ := exec.Run(
+			    jpegtran.Jpegtran,
+			    cmdkeys,
+			    []string{},
+			    wd,
+			    exec.DevNull,
+			    exec.DevNull,
+			    exec.DevNull)
 
-		// идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
-		// не забыть прочитать EXIF из файла
+		    // идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
+		    // не забыть прочитать EXIF из файла
 
-		cmd.Close()
-		outstat, _ := os.Stat(name)
+		    cmd.Close()
+		    outstat, _ := os.Stat(name)
 
-		oSaved += stat.Size - outstat.Size
+		    oSaved += stat.Size - outstat.Size
 
-		os.Remove(tmpname)
+		    os.Remove(tmpname)
+        } else {
+            // Jpegtran нам недоступен
+            im.Jpeg(name, oQuality)
+            im.Destroy()
+            im = nil
+        }
 		fmt.Println("done")
 	}
 
