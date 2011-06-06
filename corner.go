@@ -474,15 +474,11 @@ func main() {
             }
 
             jtname := fp.Base(jpegtran.Jpegtran)
+            paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator}, -1)
 
-            b := bytes.NewBufferString(os.Getenv("PATH"))
-            for {
-                if pth, e := b.ReadString(byte(fp.ListSeparator)); e == nil {
-                    if name := fp.Join(pth[:len(pth)-1], jtname); fileexists(name) {
-                        return name, true
-                    }
-                } else {
-                    break
+            for _, p := range paths {
+                if name := fp.Join(string(p), jtname); fileexists(name) {
+                    return name, true
                 }
             }
         }
