@@ -571,20 +571,18 @@ func main() {
 
 		    cmdkeys = append(cmdkeys, "-optimize", tmpname)
 
-		    // Запускаем jpegtran
-		    cmd, _ := exec.Run(
-			    oJtname,
-			    cmdkeys,
-			    []string{},
-			    wd,
-			    exec.DevNull,
-			    exec.DevNull,
-			    exec.DevNull)
+			cmd := &exec.Cmd{
+				Path: oJtname,
+				Args: cmdkeys,
+				Env: []string{},
+				Dir: wd,
+			}
 
-		    // идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
+			cmd.Wait()
+
+		    // TODO: идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
 		    // не забыть прочитать EXIF из файла
 
-		    cmd.Close()
 		    outstat, _ := os.Stat(name)
 
 		    oSaved += stat.Size - outstat.Size
