@@ -16,8 +16,8 @@ import (
 	"jpegtran"
 	"exec"
 	"math"
-    "runtime"
-    "bytes"
+	"runtime"
+	"bytes"
 )
 
 // проверяем файл на существование
@@ -356,9 +356,9 @@ func main() {
 		moo()
 	}
 
-    if runtime.GOMAXPROCS(-1) > 1 {
-        runtime.GOMAXPROCS(3)
-    }
+	if runtime.GOMAXPROCS(-1) > 1 {
+		runtime.GOMAXPROCS(3)
+	}
 
 	// Преобразование маски файлов в более традиционный для Go формат
 	regexp, _ := r.Compile(`(\{[^\}]+\})`)
@@ -428,63 +428,63 @@ func main() {
 	var corner *gd.Image
 	defer corner.Destroy()
 
-    coready := make(chan *gd.Image)
+	coready := make(chan *gd.Image)
 
-    oRadius, _ := strconv.Atoi(options["radius"])
-    if oRadius > 0 {
-        go func() {
-	        oRadius, _ := strconv.Atoi(options["radius"])
+	oRadius, _ := strconv.Atoi(options["radius"])
+	if oRadius > 0 {
+		go func() {
+			oRadius, _ := strconv.Atoi(options["radius"])
 
-            // важно, что это локальная переменная, иначе будет
-            // баг — указатель будет уже не пустой, а уголки ещё
-            // не будут готовы
-		    corner := gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
-		    corner.AlphaBlending(false)
-		    corner.SaveAlpha(true)
-		    trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
-		    back := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
+			// важно, что это локальная переменная, иначе будет
+			// баг — указатель будет уже не пустой, а уголки ещё
+			// не будут готовы
+			corner := gd.CreateTrueColor(oRadius<<1+2, oRadius<<1+2)
+			corner.AlphaBlending(false)
+			corner.SaveAlpha(true)
+			trans := corner.ColorAllocateAlpha(oBgColor[0], oBgColor[1], oBgColor[2], 127)
+			back := corner.ColorAllocate(oBgColor[0], oBgColor[1], oBgColor[2])
 
-		    corner.Fill(0, 0, trans)
-		    smoothellipse(corner, oRadius, oRadius+1, oRadius, back)
+			corner.Fill(0, 0, trans)
+			smoothellipse(corner, oRadius, oRadius+1, oRadius, back)
 
-		    // инвертируем прозрачность пикселей
-		    for x := 0; x < corner.Sx(); x++ {
-			    for y := 0; y < corner.Sy(); y++ {
-				    c := corner.ColorsForIndex(corner.ColorAt(x, y))
-				    c["alpha"] = 127 - c["alpha"]
+			// инвертируем прозрачность пикселей
+			for x := 0; x < corner.Sx(); x++ {
+				for y := 0; y < corner.Sy(); y++ {
+					c := corner.ColorsForIndex(corner.ColorAt(x, y))
+					c["alpha"] = 127 - c["alpha"]
 
-				    nc := corner.ColorAllocateAlpha(c["red"], c["green"], c["blue"], c["alpha"])
-				    corner.SetPixel(x, y, nc)
-			    }
-		    }
+					nc := corner.ColorAllocateAlpha(c["red"], c["green"], c["blue"], c["alpha"])
+					corner.SetPixel(x, y, nc)
+				}
+			}
 
-            coready <- corner
-        }()
-    }
+			coready <- corner
+		}()
+	}
 
 	// Качество сохраняемой картинки
 	oQuality, _ := strconv.Atoi(options["quality"])
 
-    // проверяем, доступен ли jpegtran
-    // пробуем найти jpegtran
-    oJtname, oJt := func() (string, bool) {
-        if jpegtran.Jpegtran != "" {
-            if fileexists(jpegtran.Jpegtran) {
-                return jpegtran.Jpegtran, true
-            }
+	// проверяем, доступен ли jpegtran
+	// пробуем найти jpegtran
+	oJtname, oJt := func() (string, bool) {
+		if jpegtran.Jpegtran != "" {
+			if fileexists(jpegtran.Jpegtran) {
+				return jpegtran.Jpegtran, true
+			}
 
-            jtname := fp.Base(jpegtran.Jpegtran)
-            paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator})
+			jtname := fp.Base(jpegtran.Jpegtran)
+			paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator})
 
-            for _, p := range paths {
-                if name := fp.Join(string(p), jtname); fileexists(name) {
-                    return name, true
-                }
-            }
-        }
+			for _, p := range paths {
+				if name := fp.Join(string(p), jtname); fileexists(name) {
+					return name, true
+				}
+			}
+		}
 
-        return "", false
-    }()
+		return "", false
+	}()
 
 	// Временное имя для ч/б профиля
 	oProfile := fp.Join(os.TempDir(), "cornet-bolk-bw.txt")
@@ -524,17 +524,17 @@ func main() {
 			w, h = sx, sy
 		}
 
-        if oRadius > 0 {
-            if corner == nil {
-                corner = <- coready
-            }
+		if oRadius > 0 {
+			if corner == nil {
+				corner = <-coready
+			}
 
-		    if R := oRadius + 1; R > 1 {
-			    corner.Copy(im, 0, 0, 0, 0, R, R)
-			    corner.Copy(im, 0, h-R, 0, R, R, R)
-			    corner.Copy(im, w-R, 0, R, 0, R, R)
-			    corner.Copy(im, w-R, h-R, R, R, R, R)
-            }
+			if R := oRadius + 1; R > 1 {
+				corner.Copy(im, 0, 0, 0, 0, R, R)
+				corner.Copy(im, 0, h-R, 0, R, R, R)
+				corner.Copy(im, w-R, 0, R, 0, R, R)
+				corner.Copy(im, w-R, h-R, R, R, R, R)
+			}
 		}
 
 		// Если имена не сохраняем, то заменяем на сгенерированное имя
@@ -546,35 +546,35 @@ func main() {
 			}
 		}
 
-        // Jpegtran доступен
-        if oJt {
-    		tmpname := oTmpName + fp.Base(name)
-	    	gray := isgray(im)
+		// Jpegtran доступен
+		if oJt {
+			tmpname := oTmpName + fp.Base(name)
+			gray := isgray(im)
 
-		    im.Jpeg(tmpname, oQuality)
-		    im.Destroy()
-		    im = nil
+			im.Jpeg(tmpname, oQuality)
+			im.Destroy()
+			im = nil
 
-		    // Оптимизация jpeg
-		    stat, _ := os.Stat(tmpname)
-		    cmdkeys := []string{"-copy", "none"}
+			// Оптимизация jpeg
+			stat, _ := os.Stat(tmpname)
+			cmdkeys := []string{"-copy", "none"}
 
-		    // Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
-		    if stat.Size > 10*1024 {
-			    cmdkeys = append(cmdkeys, "-progressive")
-		    }
+			// Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
+			if stat.Size > 10*1024 {
+				cmdkeys = append(cmdkeys, "-progressive")
+			}
 
-		    // Если файл серый, то оптимизируем его как серый
-		    if gray {
-			    cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
-		    }
+			// Если файл серый, то оптимизируем его как серый
+			if gray {
+				cmdkeys = append(cmdkeys, "-grayscale", "-scans", oProfile)
+			}
 
-		    cmdkeys = append(cmdkeys, "-optimize", tmpname)
+			cmdkeys = append(cmdkeys, "-optimize", tmpname)
 			cmd := exec.Command(oJtname, cmdkeys...)
-			
+
 			buf := make([]byte, 2048)
-			
-			fp, _  := os.Create(name)
+
+			fp, _ := os.Create(name)
 			out, _ := cmd.StderrPipe()
 			cmd.Start()
 
@@ -584,27 +584,27 @@ func main() {
 				if n == 0 {
 					break
 				}
-				
+
 				fp.Write(buf[0:n])
 			}
 
 			fp.Close()
 			cmd.Wait()
 
-		    // TODO: идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
-		    // не забыть прочитать EXIF из файла
+			// TODO: идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
+			// не забыть прочитать EXIF из файла
 
-		    outstat, _ := os.Stat(name)
+			outstat, _ := os.Stat(name)
 
-		    oSaved += stat.Size - outstat.Size
+			oSaved += stat.Size - outstat.Size
 
-		    os.Remove(tmpname)
-        } else {
-            // Jpegtran нам недоступен
-            im.Jpeg(name, oQuality)
-            im.Destroy()
-            im = nil
-        }
+			os.Remove(tmpname)
+		} else {
+			// Jpegtran нам недоступен
+			im.Jpeg(name, oQuality)
+			im.Destroy()
+			im = nil
+		}
 		fmt.Println("done")
 	}
 
