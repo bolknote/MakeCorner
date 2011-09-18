@@ -572,11 +572,24 @@ func main() {
 		    cmdkeys = append(cmdkeys, "-optimize", tmpname)
 			cmd := exec.Command(oJtname, cmdkeys...)
 			
-			fp, _  := os.Create(name)
-			out, _ := cmd.Output()
+			buf := make([]byte, 2048)
 			
-			fp.Write(out)
+			fp, _  := os.Create(name)
+			out, _ := cmd.StderrPipe()
+			cmd.Start()
+
+			for {
+				n, _ := out.Read(buf)
+
+				if n == 0 {
+					break
+				}
+				
+				fp.Write(buf[0:n])
+			}
+
 			fp.Close()
+			cmd.Wait()
 
 		    // TODO: идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
 		    // не забыть прочитать EXIF из файла
