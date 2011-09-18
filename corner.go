@@ -557,7 +557,7 @@ func main() {
 
 		    // Оптимизация jpeg
 		    stat, _ := os.Stat(tmpname)
-		    cmdkeys := []string{"-copy none", "-outfile", name}
+		    cmdkeys := []string{"-copy", "none"}
 
 		    // Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
 		    if stat.Size > 10*1024 {
@@ -570,15 +570,13 @@ func main() {
 		    }
 
 		    cmdkeys = append(cmdkeys, "-optimize", tmpname)
-
-			cmd := &exec.Cmd{
-				Path: oJtname,
-				Args: cmdkeys,
-				Env: []string{},
-				Dir: wd,
-			}
-
-			cmd.Wait()
+			cmd := exec.Command(oJtname, cmdkeys...)
+			
+			fp, _  := os.Create(name)
+			out, _ := cmd.Output()
+			
+			fp.Write(out)
+			fp.Close()
 
 		    // TODO: идея такая — stdout замыкаем на Writer, берём с него данные, следим за EXIF
 		    // не забыть прочитать EXIF из файла
