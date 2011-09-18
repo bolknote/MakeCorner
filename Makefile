@@ -1,4 +1,4 @@
-GOROOT=/Users/bolk/go
+GOROOT=/usr/local/Cellar/go/r59
 GDPATH=/usr/local/Cellar/gd/2.0.36RC1
 JPEGTRAN=/usr/local/bin/jpegtran
 
