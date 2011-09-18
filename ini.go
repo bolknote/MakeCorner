@@ -33,7 +33,7 @@ func ParseFile(name string) inifile {
 			break
 		}
 
-		chunks := strings.Split(strings.TrimRight(line, "\r\n"), "=", 3)
+		chunks := strings.SplitN(strings.TrimRight(line, "\r\n"), "=", 3)
 		if len(chunks) == 2 {
 			key, value := strings.Trim(chunks[0], "\t "), strings.Trim(chunks[1], "\t ")
 

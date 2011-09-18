@@ -364,7 +364,7 @@ func main() {
 	regexp, _ := r.Compile(`(\{[^\}]+\})`)
 
 	oMask := regexp.ReplaceAllStringFunc(options["mask"], func(m string) string {
-		return "[" + s.Join(s.Split(m[1:len(m)-1], ",", -1), "") + "]"
+		return "[" + s.Join(s.Split(m[1:len(m)-1], ","), "") + "]"
 	})
 
 	// Первоначальное значение out-dir
@@ -474,7 +474,7 @@ func main() {
             }
 
             jtname := fp.Base(jpegtran.Jpegtran)
-            paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator}, -1)
+            paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator})
 
             for _, p := range paths {
                 if name := fp.Join(string(p), jtname); fileexists(name) {
