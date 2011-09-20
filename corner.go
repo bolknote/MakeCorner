@@ -575,7 +575,7 @@ func main() {
 			buf := make([]byte, 2048)
 
 			fp, _ := os.Create(name)
-			out, _ := cmd.StderrPipe()
+			out, _ := cmd.StdoutPipe()
 			cmd.Start()
 
 			for {
