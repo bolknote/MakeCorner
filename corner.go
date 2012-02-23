@@ -12,7 +12,7 @@ import (
 	s "strings"
 	"io/ioutil"
 	"time"
-	"gd"
+	gd "github.com/bolknote/go-gd"
 	"jpegtran"
 	"exec"
 	"math"
