@@ -1,14 +1,14 @@
 Переписываю свой проект MakeCorner на Go.
 
-Зависимости:
- * http://ring.nict.go.jp/archives/graphics/gd/ (GD library)
- * http://www.ijg.org/ (jpegtran utility)
-
  Компиляция:
-   1) Надо исправить несколько переменных в начале Makefile.
+   0) ставим brew по инструкции: https://github.com/mxcl/homebrew/wiki/installation
 
-     GOROOT — переменная, указывающая куда установлен Go
-     JPEGTRAN — переменная, указывающая на запускаемый файл jpegtran
+   1) ставим зависимости:
+      brew install gd
+      brew install libjpeg
+
+   2) убедитесь, что переменная GOROOT, в начале файла Makefile, действительно
+      указывает туда, куда у вас установлен язык Go
 
    2) выполнить make
 
