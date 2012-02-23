@@ -1,5 +1,6 @@
 GOROOT=/usr/local/Cellar/go/r60.3
 JPEGTRAN=/usr/local/bin/jpegtran
+
 GOGDPATH=github.com/bolknote/go-gd
 
 include ${GOROOT}/src/Make.inc

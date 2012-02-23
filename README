@@ -1,7 +1,5 @@
 Переписываю свой проект MakeCorner на Go.
 
-Библиотека gd.go взята из проекта https://github.com/bolknote/go-gd
-
 Зависимости:
  * http://ring.nict.go.jp/archives/graphics/gd/ (GD library)
  * http://www.ijg.org/ (jpegtran utility)
@@ -10,7 +8,6 @@
    1) Надо исправить несколько переменных в начале Makefile.
 
      GOROOT — переменная, указывающая куда установлен Go
-     GDPATH — переменная, указывающая куда установлена GD
      JPEGTRAN — переменная, указывающая на запускаемый файл jpegtran
 
    2) выполнить make
