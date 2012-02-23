@@ -26,5 +26,5 @@ jpegtran.go:
 	@echo "package jpegtran; const Jpegtran=\`$(JPEGTRAN)\`" > jpegtran.go
 
 gd.go:
-	CGO_LDFLAGS=-lgd GOPATH=${GOROOT} goinstall ${GOGDPATH}
+	CGO_LDFLAGS=-lgd GOPATH=${GOROOT} goinstall -clean=true ${GOGDPATH}
 	cp -f ${GOROOT}/src/${GOGDPATH}/gd.go .
