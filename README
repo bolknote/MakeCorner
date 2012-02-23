@@ -1,15 +1,20 @@
 Переписываю свой проект MakeCorner на Go.
 
  Компиляция:
-   0) ставим brew по инструкции: https://github.com/mxcl/homebrew/wiki/installation
+   0) если у вас MacOS, ставим brew по инструкции: https://github.com/mxcl/homebrew/wiki/installation
 
    1) ставим зависимости:
-      brew install gd
-      brew install libjpeg
+      MacOS:
+          brew install gd
+          brew install libjpeg
+
+      Все остальным нужно установить следующие вещи:
+         jpegtran: http://www.ijg.org/
+         GD: http://ring.nict.go.jp/archives/graphics/gd/
 
    2) убедитесь, что переменная GOROOT, в начале файла Makefile, действительно
       указывает туда, куда у вас установлен язык Go
 
-   2) выполнить make
+   3) выполнить make
 
-   3) получившийся файл corner можно запускать
+   4) получившийся файл corner можно запускать
