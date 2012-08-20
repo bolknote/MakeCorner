@@ -12,9 +12,5 @@
          jpegtran: http://www.ijg.org/
          GD: http://ring.nict.go.jp/archives/graphics/gd/
 
-   2) убедитесь, что переменная GOROOT, в начале файла Makefile, действительно
-      указывает туда, куда у вас установлен язык Go
-
-   3) выполнить make
-
-   4) получившийся файл corner можно запускать
+   2) go build corner.go
+   3) получившийся файл (corner) можно запускать

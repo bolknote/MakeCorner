@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ini"
+	ini "./modules/"
 	"fmt"
 	"os"
 	fp "path/filepath"
@@ -13,12 +13,14 @@ import (
 	"io/ioutil"
 	"time"
 	gd "github.com/bolknote/go-gd"
-	"jpegtran"
-	"exec"
+	exec "os/exec"
 	"math"
 	"runtime"
 	"bytes"
 )
+
+// путь, где в системе расположена утилита jpegtran
+const jpegtran = "/usr/local/bin/jpegtran"
 
 // проверяем файл на существование
 func fileexists(name string) bool {
@@ -249,8 +251,8 @@ func getrecurlist(mask, except string) (out []string) {
 	files, e := ioutil.ReadDir(".")
 	if e == nil {
 		for _, file := range files {
-			if file.IsDirectory() {
-				entry := path.Join(wd, file.Name)
+			if file.IsDir() {
+				entry := path.Join(wd, file.Name())
 
 				if entry == except {
 					continue
@@ -398,7 +400,7 @@ func main() {
 	}
 
 	// Маска для нового имени
-	now := time.LocalTime().Format("2006.01.02")
+	now := time.Now().Format("2006.01.02")
 	oNameMask := path.Join(options["out-dir"], now)
 	if oLen > 1 {
 		prec := strconv.Itoa(len(strconv.Itoa(oLen)))
@@ -420,7 +422,7 @@ func main() {
 	oBgColor := [3]int{}
 
 	for i := 1; i < len(options["background"]); i += 2 {
-		c, _ := strconv.Btoi64(options["background"][i:i+2], 16)
+		c, _ := strconv.ParseInt(options["background"][i:i+2], 16, 0)
 		oBgColor[i>>1] = int(c)
 	}
 
@@ -468,12 +470,12 @@ func main() {
 	// проверяем, доступен ли jpegtran
 	// пробуем найти jpegtran
 	oJtname, oJt := func() (string, bool) {
-		if jpegtran.Jpegtran != "" {
-			if fileexists(jpegtran.Jpegtran) {
-				return jpegtran.Jpegtran, true
+		if jpegtran != "" {
+			if fileexists(jpegtran) {
+				return jpegtran, true
 			}
 
-			jtname := fp.Base(jpegtran.Jpegtran)
+			jtname := fp.Base(jpegtran)
 			paths := bytes.Split([]byte(os.Getenv("PATH")), []byte{fp.ListSeparator})
 
 			for _, p := range paths {
@@ -560,7 +562,7 @@ func main() {
 			cmdkeys := []string{"-copy", "none"}
 
 			// Для файлов > 10КБ с вероятностью 94% лучшие результаты даёт progressive
-			if stat.Size > 10*1024 {
+			if stat.Size() > 10*1024 {
 				cmdkeys = append(cmdkeys, "-progressive")
 			}
 
@@ -596,7 +598,7 @@ func main() {
 
 			outstat, _ := os.Stat(name)
 
-			oSaved += stat.Size - outstat.Size
+			oSaved += stat.Size() - outstat.Size()
 
 			os.Remove(tmpname)
 		} else {
