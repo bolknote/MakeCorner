@@ -12,5 +12,6 @@
          jpegtran: http://www.ijg.org/
          GD: http://ring.nict.go.jp/archives/graphics/gd/
 
-   2) go build corner.go
-   3) получившийся файл (corner) можно запускать
+   2) go get github.com/bolknote/go-gd
+   3) go build corner.go
+   4) получившийся файл (corner) можно запускать
