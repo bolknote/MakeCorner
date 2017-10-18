@@ -1,7 +1,7 @@
 package main
 
 import (
-	ini "./modules/"
+	ini "./modules"
 	"fmt"
 	"os"
 	fp "path/filepath"
