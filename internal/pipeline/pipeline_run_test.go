@@ -49,6 +49,24 @@ func makePNG(t *testing.T, path string) {
 	}
 }
 
+func makeBlackPNG(t *testing.T, path string, w, h int) {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.NRGBA{R: 0, G: 0, B: 0, A: 255})
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProcessorRunKeepName(t *testing.T) {
 	tmp := t.TempDir()
 	wd, err := os.Getwd()
@@ -221,5 +239,57 @@ func TestProcessorRunContinuesOnPerFileErrorAndAggregates(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join("out", "ok.jpg")); statErr != nil {
 		t.Fatalf("expected output for successful file, got stat error: %v", statErr)
+	}
+}
+
+func TestProcessorRunBlackPNGCornerTransparency(t *testing.T) {
+	tmp := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	makeBlackPNG(t, filepath.Join(tmp, "black.png"), 24, 24)
+	p := NewProcessor(config.Config{
+		Quality:    80,
+		Width:      0,
+		Radius:     8,
+		Background: [3]uint8{255, 255, 255},
+		Mask:       "*.png",
+		OutDir:     "out",
+		KeepName:   true,
+	})
+	if _, err := p.Run(); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	f, err := os.Open(filepath.Join("out", "black.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	out, err := png.Decode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cornerR, cornerG, cornerB, cornerA := out.At(0, 0).RGBA()
+	if cornerA == 0xffff {
+		t.Fatalf("expected corner to be transparent after rounding, alpha=%d", cornerA)
+	}
+	if cornerR != 0 || cornerG != 0 || cornerB != 0 {
+		t.Fatalf("expected corner RGB to remain black in transparent mode, got r=%d g=%d b=%d", cornerR, cornerG, cornerB)
+	}
+
+	centerR, centerG, centerB, centerA := out.At(12, 12).RGBA()
+	if centerA != 0xffff {
+		t.Fatalf("expected center to stay fully opaque, alpha=%d", centerA)
+	}
+	if centerR != 0 || centerG != 0 || centerB != 0 {
+		t.Fatalf("expected center RGB to stay black, got r=%d g=%d b=%d", centerR, centerG, centerB)
 	}
 }

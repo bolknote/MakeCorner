@@ -75,7 +75,19 @@ func Save(img *gd.Image, path string, quality int) error {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("save %s: %w", path, err)
 	}
+	if err := syncDir(dir); err != nil {
+		return fmt.Errorf("save %s: %w", path, err)
+	}
 	return nil
+}
+
+func syncDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	return f.Sync()
 }
 
 func encodeFile(img *gd.Image, path string, quality int) error {

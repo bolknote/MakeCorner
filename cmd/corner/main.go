@@ -31,6 +31,9 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) error {
 	configureLogging(stderr)
+	if len(args) == 0 {
+		return errors.New("missing argv[0]")
+	}
 
 	cfg, err := config.Load(args[0], args[1:], stderr)
 	if err != nil {

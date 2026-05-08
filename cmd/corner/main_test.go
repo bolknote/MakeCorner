@@ -8,6 +8,16 @@ import (
 	"testing"
 )
 
+func TestRunReturnsErrorOnEmptyArgs(t *testing.T) {
+	err := run(nil, io.Discard, io.Discard)
+	if err == nil {
+		t.Fatal("expected error for empty args")
+	}
+	if !strings.Contains(err.Error(), "argv[0]") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestRunMooPrintsASCII(t *testing.T) {
 	var out bytes.Buffer
 	err := run([]string{"corner", "--moo"}, &out, io.Discard)

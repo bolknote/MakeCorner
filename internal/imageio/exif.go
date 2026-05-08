@@ -103,6 +103,9 @@ func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
 		_ = os.Remove(tmpPath)
 		return err
 	}
+	if err := syncDir(dir); err != nil {
+		return err
+	}
 	return nil
 }
 
