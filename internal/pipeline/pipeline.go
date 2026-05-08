@@ -3,6 +3,7 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,13 +40,31 @@ func (p *Processor) Run() (Stats, error) {
 	}
 
 	var stats Stats
+	var runErr error
 	for i, src := range files {
-		fmt.Printf("Processing %s ... ", src)
+		started := time.Now()
 		if err := p.processOne(src, i+1, len(files)); err != nil {
-			return stats, err
+			fileErr := fmt.Errorf("processing %s: %w", src, err)
+			slog.Error("file processing failed",
+				"file", src,
+				"index", i+1,
+				"total", len(files),
+				"duration", time.Since(started),
+				"error", err,
+			)
+			runErr = errors.Join(runErr, fileErr)
+			continue
 		}
-		fmt.Println("done")
+		slog.Info("file processed",
+			"file", src,
+			"index", i+1,
+			"total", len(files),
+			"duration", time.Since(started),
+		)
 		stats.Processed++
+	}
+	if runErr != nil {
+		return stats, fmt.Errorf("completed with errors: %w", runErr)
 	}
 	return stats, nil
 }
@@ -58,7 +77,10 @@ func (p *Processor) processOne(src string, idx, total int) error {
 		case err == nil:
 			exifSegment = seg
 		case !errors.Is(err, imageio.ErrNotJPEG):
-			fmt.Fprintf(os.Stderr, "warning: failed to read EXIF from %s: %v\n", src, err)
+			slog.Warn("failed to read EXIF segment",
+				"file", src,
+				"error", err,
+			)
 		}
 	}
 
@@ -91,7 +113,10 @@ func (p *Processor) processOne(src string, idx, total int) error {
 	}
 	if len(exifSegment) > 0 && format == imageio.FormatJPEG {
 		if err := imageio.WriteEXIFSegment(dst, exifSegment); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to write EXIF to %s: %v\n", dst, err)
+			slog.Warn("failed to write EXIF segment",
+				"file", dst,
+				"error", err,
+			)
 		}
 	}
 	return nil

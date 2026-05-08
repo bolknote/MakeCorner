@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"corner/internal/config"
@@ -150,5 +151,64 @@ func TestProcessorRunPNGUsesTransparentCorners(t *testing.T) {
 	_, _, _, centerAlpha := out.At(5, 5).RGBA()
 	if centerAlpha != 0xffff {
 		t.Fatalf("expected PNG center to stay opaque, alpha=%d", centerAlpha)
+	}
+}
+
+func TestProcessorRunContinuesOnPerFileErrorAndAggregates(t *testing.T) {
+	tmp := t.TempDir()
+	wd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	makeJPEG(t, filepath.Join(tmp, "ok.jpg"))
+	makeJPEG(t, filepath.Join(tmp, "bad.jpg"))
+
+	p := NewProcessor(config.Config{
+		Quality:    80,
+		Width:      0,
+		Radius:     2,
+		Background: [3]uint8{255, 255, 255},
+		Mask:       "*.jpg",
+		OutDir:     "out",
+		KeepName:   true,
+	})
+
+	// Make one destination path invalid as a file to force processOne failure.
+	if err := os.WriteFile(filepath.Join(tmp, "out"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := p.Run()
+	if err == nil {
+		t.Fatal("expected aggregated error")
+	}
+	if stats.Processed != 0 {
+		t.Fatalf("expected 0 processed with invalid out path, got %d", stats.Processed)
+	}
+
+	// Fix output path and break only one destination target.
+	if err := os.Remove(filepath.Join(tmp, "out")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir("out", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join("out", "bad.jpg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err = p.Run()
+	if err == nil {
+		t.Fatal("expected non-nil aggregated error")
+	}
+	if !strings.Contains(err.Error(), "bad.jpg") {
+		t.Fatalf("expected failing file path in aggregated error, got %v", err)
+	}
+	if stats.Processed != 1 {
+		t.Fatalf("expected one successful file despite one failure, got %d", stats.Processed)
+	}
+	if _, statErr := os.Stat(filepath.Join("out", "ok.jpg")); statErr != nil {
+		t.Fatalf("expected output for successful file, got stat error: %v", statErr)
 	}
 }

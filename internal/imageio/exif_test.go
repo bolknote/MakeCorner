@@ -110,3 +110,48 @@ func TestWriteEXIFSegmentRejectsInvalidJPEG(t *testing.T) {
 		t.Fatalf("expected ErrNotJPEG, got %v", err)
 	}
 }
+
+func TestReadEXIFSegmentFromFile(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "in.jpg")
+	if err := os.WriteFile(p, makeJPEGWithEXIF(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	seg, err := ReadEXIFSegment(p)
+	if err != nil {
+		t.Fatalf("read exif: %v", err)
+	}
+	if !bytes.Contains(seg, []byte("Exif\x00\x00")) {
+		t.Fatalf("expected exif payload, got %x", seg)
+	}
+}
+
+func TestReadEXIFSegmentNotJPEG(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "in.jpg")
+	if err := os.WriteFile(p, []byte("plain text"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ReadEXIFSegment(p)
+	if !errors.Is(err, ErrNotJPEG) {
+		t.Fatalf("expected ErrNotJPEG, got %v", err)
+	}
+}
+
+func TestReadEXIFSegmentWithoutExifReturnsEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "in.jpg")
+	if err := os.WriteFile(p, makeJPEGNoEXIF(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	seg, err := ReadEXIFSegment(p)
+	if err != nil {
+		t.Fatalf("read exif: %v", err)
+	}
+	if len(seg) != 0 {
+		t.Fatalf("expected no exif segment, got %x", seg)
+	}
+}

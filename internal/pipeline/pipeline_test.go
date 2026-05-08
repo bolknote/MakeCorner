@@ -76,3 +76,33 @@ func TestCollectFilesSkipsBrokenImagePayload(t *testing.T) {
 		t.Fatalf("expected broken image to be skipped, got %#v", files)
 	}
 }
+
+func TestCollectFilesRecursiveSkipsOutDir(t *testing.T) {
+	tmp := t.TempDir()
+	wd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join("src", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join("out", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	makeJPEG(t, filepath.Join(tmp, "src", "nested", "in.jpg"))
+	makeJPEG(t, filepath.Join(tmp, "out", "nested", "out.jpg"))
+
+	files, err := collectFiles("*.jpg", true, "out")
+	if err != nil {
+		t.Fatalf("collectFiles recursive: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected one recursive source image outside out dir, got %#v", files)
+	}
+	if filepath.Base(files[0]) != "in.jpg" {
+		t.Fatalf("unexpected recursive match: %#v", files)
+	}
+}
