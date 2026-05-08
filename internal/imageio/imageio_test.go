@@ -1,9 +1,11 @@
 package imageio
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -99,6 +101,52 @@ func TestSaveUnsupportedExtensionReturnsError(t *testing.T) {
 
 	if err := Save(img, out, 80); err == nil {
 		t.Fatal("expected save error for unsupported extension")
+	}
+}
+
+func TestLoadRejectsUnsupportedExtension(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "in.txt")
+	if err := os.WriteFile(p, []byte("not an image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(p); err == nil {
+		t.Fatal("expected extension error")
+	}
+}
+
+func TestLoadReturnsDecodeErrorForBrokenJPEG(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "in.jpg")
+	if err := os.WriteFile(p, []byte("not a jpeg payload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(p); err == nil {
+		t.Fatal("expected decode error for broken jpeg")
+	}
+}
+
+func TestSaveReturnsFsErrExistWhenDestinationIsDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	in := filepath.Join(tmp, "in.jpg")
+	outDir := filepath.Join(tmp, "out.png")
+	writeFixture(t, in, 12, 6)
+	if err := os.Mkdir(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	img, err := Load(in)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	defer func() { _ = img.Close() }()
+
+	err = Save(img, outDir, 80)
+	if err == nil {
+		t.Fatal("expected save error")
+	}
+	if !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("expected wrapped fs.ErrExist, got %v", err)
 	}
 }
 

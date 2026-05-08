@@ -155,3 +155,36 @@ func TestReadEXIFSegmentWithoutExifReturnsEmpty(t *testing.T) {
 		t.Fatalf("expected no exif segment, got %x", seg)
 	}
 }
+
+func TestWriteEXIFSegmentEmptySegmentIsNoop(t *testing.T) {
+	tmp := t.TempDir()
+	dst := filepath.Join(tmp, "out.jpg")
+	original := makeJPEGNoEXIF()
+	if err := os.WriteFile(dst, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteEXIFSegment(dst, nil); err != nil {
+		t.Fatalf("empty exif segment should be ignored, got %v", err)
+	}
+
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, original) {
+		t.Fatal("file should stay unchanged on empty segment")
+	}
+}
+
+func TestWriteEXIFSegmentMissingFile(t *testing.T) {
+	tmp := t.TempDir()
+	missing := filepath.Join(tmp, "missing.jpg")
+	seg, err := extractEXIFSegment(makeJPEGWithEXIF())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteEXIFSegment(missing, seg); err == nil {
+		t.Fatal("expected open error for missing destination")
+	}
+}
