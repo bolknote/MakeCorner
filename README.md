@@ -8,7 +8,8 @@ The current renderer uses a Bezier-based corner mask and supports configurable o
 - Resize images to a target width while preserving aspect ratio
 - Apply rounded corners with a configurable radius and background color
 - Configure processing with CLI flags or an INI file
-- Process files recursively or from a glob mask
+- Process files recursively or from a glob mask (with brace expansion)
+- Process files in parallel across all available CPU cores
 - Save output with generated names or keep original filenames
 - Optionally copy EXIF metadata for JPEG outputs (atomic write)
 
@@ -61,6 +62,13 @@ In recursive mode the mask is matched against each file's *base name*
 skipped automatically while walking, so generated outputs do not feed back
 into the next run.
 
+Brace expansion is supported in masks:
+
+- `*.{jpg,png}` matches files of either extension (results are unioned and
+  deduplicated).
+- `*.{j,J}{p,P}{g,G}` collapses to the character class `*.[jJ][pP][gG]`,
+  giving you case-insensitive single-character alternatives.
+
 ### INI file
 
 If `corner.ini` (or the legacy `makecorner.ini`) is present in the current
@@ -90,6 +98,29 @@ blended against `--background` instead.
 Both image saves and EXIF copy go via a sibling temp file followed by
 `rename(2)`, so partially written outputs are never visible to other tools or
 to a second run of Corner.
+
+## Concurrency
+
+Files are processed in parallel by a worker pool sized to `runtime.NumCPU()`.
+Per-file logs may interleave; the final aggregated error (if any) lists every
+failed file. The output directory is created once before any worker starts, and
+all writes go through the atomic temp+rename path described above, so
+concurrent runs do not race on the destination.
+
+On completion the binary prints a one-line summary to stdout:
+
+```
+Processed 12 file(s)
+```
+
+When some files fail, the count of failures is appended:
+
+```
+Processed 10 file(s), 2 failed
+```
+
+The process still exits non-zero in that case and the per-file errors are
+emitted via `slog`.
 
 ## Testing
 
