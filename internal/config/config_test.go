@@ -83,6 +83,10 @@ func TestExpandMaskMultiCharBraces(t *testing.T) {
 		{"*.{jpg,png,webp}", []string{"*.jpg", "*.png", "*.webp"}},
 		{"*.{j,J}{p,P}{g,G}", []string{"*.[jJ][pP][gG]"}},
 		{"img.{jpg,png}.bak", []string{"img.jpg.bak", "img.png.bak"}},
+		{"*.{,jpg}", []string{"*.", "*.jpg"}},
+		{"*.{a,-}", []string{"*.a", "*.-"}},
+		{"*.{a,]}", []string{"*.a", "*.]"}},
+		{"*.{jpg,png", []string{"*.{jpg,png"}},
 		{"*", []string{"*"}},
 	}
 	for _, tc := range cases {

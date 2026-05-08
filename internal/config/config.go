@@ -183,14 +183,18 @@ func expandMask(m string) []string {
 	alternatives := strings.Split(m[open+1:close], ",")
 
 	allSingle := true
+	allSafeForCharClass := true
 	for _, a := range alternatives {
 		if len(a) != 1 {
 			allSingle = false
 			break
 		}
+		if !isSafeCharClassLiteral(a[0]) {
+			allSafeForCharClass = false
+		}
 	}
 
-	if allSingle {
+	if allSingle && allSafeForCharClass {
 		// {j,J} → [jJ]: a character class that filepath.Match supports.
 		return expandMask(prefix + "[" + strings.Join(alternatives, "") + "]" + suffix)
 	}
@@ -201,4 +205,15 @@ func expandMask(m string) []string {
 		result = append(result, expandMask(prefix+a+suffix)...)
 	}
 	return result
+}
+
+// isSafeCharClassLiteral reports whether b can be embedded as a plain literal
+// inside [...] without additional escaping.
+func isSafeCharClassLiteral(b byte) bool {
+	switch b {
+	case '\\', '-', ']', '^', '[':
+		return false
+	default:
+		return true
+	}
 }
