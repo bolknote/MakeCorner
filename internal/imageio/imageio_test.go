@@ -56,3 +56,67 @@ func TestLoadResizeSave(t *testing.T) {
 		t.Fatalf("missing output file: %v", err)
 	}
 }
+
+func TestResizeIfNeededNoopForZeroOrSameWidth(t *testing.T) {
+	tmp := t.TempDir()
+	in := filepath.Join(tmp, "in.jpg")
+	writeFixture(t, in, 12, 6)
+
+	img, err := Load(in)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	defer func() { _ = img.Close() }()
+
+	got, err := ResizeIfNeeded(img, 0)
+	if err != nil {
+		t.Fatalf("ResizeIfNeeded zero width: %v", err)
+	}
+	if got != img {
+		t.Fatal("expected same image pointer for width 0")
+	}
+
+	got, err = ResizeIfNeeded(img, img.Width())
+	if err != nil {
+		t.Fatalf("ResizeIfNeeded same width: %v", err)
+	}
+	if got != img {
+		t.Fatal("expected same image pointer for same width")
+	}
+}
+
+func TestSaveUnsupportedExtensionReturnsError(t *testing.T) {
+	tmp := t.TempDir()
+	in := filepath.Join(tmp, "in.jpg")
+	out := filepath.Join(tmp, "out.unknown")
+	writeFixture(t, in, 12, 6)
+
+	img, err := Load(in)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	defer func() { _ = img.Close() }()
+
+	if err := Save(img, out, 80); err == nil {
+		t.Fatal("expected save error for unsupported extension")
+	}
+}
+
+func TestClampQualityBounds(t *testing.T) {
+	cases := []struct {
+		in   int
+		want int
+	}{
+		{in: -5, want: 1},
+		{in: 0, want: 1},
+		{in: 1, want: 1},
+		{in: 50, want: 50},
+		{in: 100, want: 100},
+		{in: 101, want: 100},
+	}
+	for _, tc := range cases {
+		if got := clampQuality(tc.in); got != tc.want {
+			t.Fatalf("clampQuality(%d)=%d, want %d", tc.in, got, tc.want)
+		}
+	}
+}
