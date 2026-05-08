@@ -271,3 +271,19 @@ func TestAtomicWriteFileCreatesFileWithPerms(t *testing.T) {
 		t.Fatalf("unexpected file mode: got %#o want %#o", info.Mode().Perm(), os.FileMode(0o640))
 	}
 }
+
+func TestAtomicWriteFileFailsWhenParentDirMissing(t *testing.T) {
+	tmp := t.TempDir()
+	dst := filepath.Join(tmp, "missing", "written.bin")
+	if err := atomicWriteFile(dst, []byte("x"), 0o600); err == nil {
+		t.Fatal("expected create-temp failure for missing parent directory")
+	}
+}
+
+func TestReadEXIFSegmentMissingFile(t *testing.T) {
+	tmp := t.TempDir()
+	missing := filepath.Join(tmp, "missing.jpg")
+	if _, err := ReadEXIFSegment(missing); err == nil {
+		t.Fatal("expected read error for missing file")
+	}
+}

@@ -10,6 +10,52 @@ import (
 	gd "github.com/bolknote/go-gd/v2/pkg/gd"
 )
 
+var (
+	detectFormatFn = DetectFormat
+	supportsFormatFn = func(format gd.Format) bool {
+		return gd.SupportsFormat(format, true)
+	}
+	encodeJPEGFn = func(img *gd.Image, path string, q int) error {
+		return img.EncodeJPEGFile(path, &gd.JPEGOptions{Quality: q})
+	}
+	encodePNGFn = func(img *gd.Image, path string) error {
+		return img.EncodePNGFile(path, nil)
+	}
+	encodeGIFFn = func(img *gd.Image, path string) error {
+		return img.EncodeGIFFile(path)
+	}
+	encodeWebPFn = func(img *gd.Image, path string, q int) error {
+		return img.EncodeWebPFile(path, &gd.WebPOptions{Quality: q})
+	}
+	encodeWBMPFn = func(img *gd.Image, path string) error {
+		return img.EncodeWBMPFile(path, gd.TrueColorAlpha(0, 0, 0, 0))
+	}
+	encodeBMPFn = func(img *gd.Image, path string) error {
+		return img.EncodeBMPFile(path, nil)
+	}
+	encodeTIFFFn = func(img *gd.Image, path string) error {
+		return img.EncodeTIFFFile(path)
+	}
+	encodeGDFn = func(img *gd.Image, path string) error {
+		return img.EncodeGDFile(path)
+	}
+	encodeGD2Fn = func(img *gd.Image, path string) error {
+		return img.EncodeGD2File(path, nil)
+	}
+	encodeHEIFFn = func(img *gd.Image, path string, q int) error {
+		return img.EncodeHEIFFile(path, &gd.HEIFOptions{Quality: q})
+	}
+	encodeAVIFFn = func(img *gd.Image, path string, q int) error {
+		return img.EncodeAVIFFile(path, &gd.AVIFOptions{Quality: q})
+	}
+	encodeXBMFn = func(img *gd.Image, path string) error {
+		return img.EncodeXBMFile(path, "corner", gd.TrueColorAlpha(0, 0, 0, 0))
+	}
+	encodeFallbackFn = func(img *gd.Image, path string) error {
+		return img.EncodeFile(path)
+	}
+)
+
 func Load(path string) (*gd.Image, error) {
 	if _, err := DetectFormat(path); err != nil {
 		return nil, err
@@ -91,42 +137,42 @@ func syncDir(dir string) error {
 }
 
 func encodeFile(img *gd.Image, path string, quality int) error {
-	format, err := DetectFormat(path)
+	format, err := detectFormatFn(path)
 	if err != nil {
 		return err
 	}
-	if !gd.SupportsFormat(format, true) {
+	if !supportsFormatFn(format) {
 		return fmt.Errorf("linked libgd does not support %s encoding", format)
 	}
 
 	q := clampQuality(quality)
 	switch format {
 	case gd.FormatJPEG:
-		return img.EncodeJPEGFile(path, &gd.JPEGOptions{Quality: q})
+		return encodeJPEGFn(img, path, q)
 	case gd.FormatPNG:
-		return img.EncodePNGFile(path, nil)
+		return encodePNGFn(img, path)
 	case gd.FormatGIF:
-		return img.EncodeGIFFile(path)
+		return encodeGIFFn(img, path)
 	case gd.FormatWebP:
-		return img.EncodeWebPFile(path, &gd.WebPOptions{Quality: q})
+		return encodeWebPFn(img, path, q)
 	case gd.FormatWBMP:
-		return img.EncodeWBMPFile(path, gd.TrueColorAlpha(0, 0, 0, 0))
+		return encodeWBMPFn(img, path)
 	case gd.FormatBMP:
-		return img.EncodeBMPFile(path, nil)
+		return encodeBMPFn(img, path)
 	case gd.FormatTIFF:
-		return img.EncodeTIFFFile(path)
+		return encodeTIFFFn(img, path)
 	case gd.FormatGD:
-		return img.EncodeGDFile(path)
+		return encodeGDFn(img, path)
 	case gd.FormatGD2:
-		return img.EncodeGD2File(path, nil)
+		return encodeGD2Fn(img, path)
 	case gd.FormatHEIF:
-		return img.EncodeHEIFFile(path, &gd.HEIFOptions{Quality: q})
+		return encodeHEIFFn(img, path, q)
 	case gd.FormatAVIF:
-		return img.EncodeAVIFFile(path, &gd.AVIFOptions{Quality: q})
+		return encodeAVIFFn(img, path, q)
 	case gd.FormatXBM:
-		return img.EncodeXBMFile(path, "corner", gd.TrueColorAlpha(0, 0, 0, 0))
+		return encodeXBMFn(img, path)
 	default:
-		return img.EncodeFile(path)
+		return encodeFallbackFn(img, path)
 	}
 }
 

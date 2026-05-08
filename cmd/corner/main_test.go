@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -101,5 +102,69 @@ func TestRunReturnsPipelineError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no files found") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestMainHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_MAIN_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	args := os.Getenv("GO_WANT_MAIN_HELPER_ARGS")
+	os.Args = append([]string(nil), strings.Fields(args)...)
+	main()
+	os.Exit(0)
+}
+
+func runMainSubprocess(t *testing.T, args ...string) (int, string, string) {
+	t.Helper()
+	cmdArgs := []string{"-test.run=^TestMainHelperProcess$"}
+	cmd := exec.Command(os.Args[0], cmdArgs...)
+	cmd.Env = append(os.Environ(),
+		"GO_WANT_MAIN_HELPER_PROCESS=1",
+		"GO_WANT_MAIN_HELPER_ARGS="+strings.Join(args, " "),
+	)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		return 0, stdout.String(), stderr.String()
+	}
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("unexpected subprocess error: %v", err)
+	}
+	return ee.ExitCode(), stdout.String(), stderr.String()
+}
+
+func TestMainExitsZeroOnHelp(t *testing.T) {
+	code, _, stderr := runMainSubprocess(t, "corner", "--help")
+	if code != 0 {
+		t.Fatalf("expected exit code 0 for --help, got %d (stderr=%q)", code, stderr)
+	}
+	if !strings.Contains(stderr, "Usage:") {
+		t.Fatalf("expected usage output on stderr, got %q", stderr)
+	}
+}
+
+func TestMainExitsTwoOnFlagParseError(t *testing.T) {
+	code, _, stderr := runMainSubprocess(t, "corner", "--no-such-flag")
+	if code != 2 {
+		t.Fatalf("expected exit code 2 for flag parse failure, got %d (stderr=%q)", code, stderr)
+	}
+	if !strings.Contains(stderr, "flag provided but not defined") {
+		t.Fatalf("expected flag parse diagnostics on stderr, got %q", stderr)
+	}
+}
+
+func TestMainExitsOneOnValidationError(t *testing.T) {
+	code, _, stderr := runMainSubprocess(t, "corner", "--quality", "999")
+	if code != 1 {
+		t.Fatalf("expected exit code 1 for runtime/validation errors, got %d (stderr=%q)", code, stderr)
+	}
+	if !strings.Contains(stderr, "quality must be between 1 and 100") {
+		t.Fatalf("expected validation error on stderr, got %q", stderr)
 	}
 }
