@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Concurrent file processing via a `runtime.NumCPU()`-bounded worker pool
+- `Processed N file(s)` summary printed to stdout after each run, with a
+  failed-count suffix when any file fails
+- `Stats.Failed` counter alongside `Stats.Processed`
+- Multi-pattern brace expansion: `*.{jpg,png}` now produces multiple globs
+  that are unioned with deduplication during file discovery
+- Tests for multi-mask union/dedup, summary output, `Stats.Failed`
+  accounting, and table-driven coverage for `expandMask`
+
+### Fixed
+- Brace expansion for multi-character alternatives. `*.{jpg,png}` previously
+  collapsed to the character class `*.[jpgpn]` and silently matched the
+  wrong files; it now expands to separate `*.jpg` / `*.png` patterns
+
+### Changed
+- `config.Config.Mask` (string) replaced by `config.Config.Masks` ([]string)
+  to hold the expanded pattern set
+
 ## [0.1.0] - 2026-05-08
 
 ### Added
