@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"corner/internal/config"
@@ -20,6 +22,7 @@ type Processor struct {
 
 type Stats struct {
 	Processed int
+	Failed    int
 }
 
 func NewProcessor(cfg config.Config) *Processor {
@@ -27,7 +30,7 @@ func NewProcessor(cfg config.Config) *Processor {
 }
 
 func (p *Processor) Run() (Stats, error) {
-	files, err := collectFiles(p.cfg.Mask, p.cfg.Recursive, p.cfg.OutDir)
+	files, err := collectFiles(p.cfg.Masks, p.cfg.Recursive, p.cfg.OutDir)
 	if err != nil {
 		return Stats{}, err
 	}
@@ -39,29 +42,69 @@ func (p *Processor) Run() (Stats, error) {
 		return Stats{}, err
 	}
 
+	type fileResult struct {
+		src string
+		err error
+	}
+
+	workers := runtime.NumCPU()
+	if workers > len(files) {
+		workers = len(files)
+	}
+
+	jobs := make(chan int, len(files))
+	results := make(chan fileResult, len(files))
+
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				src := files[i]
+				started := time.Now()
+				ferr := p.processOne(src, i+1, len(files))
+				elapsed := time.Since(started)
+				if ferr != nil {
+					slog.Error("file processing failed",
+						"file", src,
+						"index", i+1,
+						"total", len(files),
+						"duration", elapsed,
+						"error", ferr,
+					)
+				} else {
+					slog.Info("file processed",
+						"file", src,
+						"index", i+1,
+						"total", len(files),
+						"duration", elapsed,
+					)
+				}
+				results <- fileResult{src: src, err: ferr}
+			}
+		}()
+	}
+
+	for i := range files {
+		jobs <- i
+	}
+	close(jobs)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
 	var stats Stats
 	var runErr error
-	for i, src := range files {
-		started := time.Now()
-		if err := p.processOne(src, i+1, len(files)); err != nil {
-			fileErr := fmt.Errorf("processing %s: %w", src, err)
-			slog.Error("file processing failed",
-				"file", src,
-				"index", i+1,
-				"total", len(files),
-				"duration", time.Since(started),
-				"error", err,
-			)
-			runErr = errors.Join(runErr, fileErr)
-			continue
+	for r := range results {
+		if r.err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("processing %s: %w", r.src, r.err))
+			stats.Failed++
+		} else {
+			stats.Processed++
 		}
-		slog.Info("file processed",
-			"file", src,
-			"index", i+1,
-			"total", len(files),
-			"duration", time.Since(started),
-		)
-		stats.Processed++
 	}
 	if runErr != nil {
 		return stats, fmt.Errorf("completed with errors: %w", runErr)
@@ -135,7 +178,26 @@ func generatedName(outDir string, idx, total int, src string) string {
 	return filepath.Join(outDir, fmt.Sprintf("%s.%0*d%s", now, prec, idx, ext))
 }
 
-func collectFiles(mask string, recursive bool, outDir string) ([]string, error) {
+func collectFiles(masks []string, recursive bool, outDir string) ([]string, error) {
+	seen := make(map[string]bool)
+	var files []string
+	for _, mask := range masks {
+		got, err := collectFilesForMask(mask, recursive, outDir)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range got {
+			if !seen[f] {
+				seen[f] = true
+				files = append(files, f)
+			}
+		}
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func collectFilesForMask(mask string, recursive bool, outDir string) ([]string, error) {
 	if !recursive {
 		matches, err := filepath.Glob(mask)
 		if err != nil {
@@ -147,7 +209,6 @@ func collectFiles(mask string, recursive bool, outDir string) ([]string, error) 
 				files = append(files, path)
 			}
 		}
-		sort.Strings(files)
 		return files, nil
 	}
 
@@ -175,7 +236,6 @@ func collectFiles(mask string, recursive bool, outDir string) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	sort.Strings(files)
 	return files, nil
 }
 

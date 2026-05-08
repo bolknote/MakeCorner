@@ -86,7 +86,7 @@ func TestProcessorRunKeepName(t *testing.T) {
 		Width:      10,
 		Radius:     2,
 		Background: [3]uint8{255, 255, 255},
-		Mask:       "*.jpg",
+		Masks:      []string{"*.jpg"},
 		OutDir:     "out",
 		KeepName:   true,
 	})
@@ -120,7 +120,7 @@ func TestProcessorRunGeneratedName(t *testing.T) {
 		Width:      0,
 		Radius:     0,
 		Background: [3]uint8{255, 255, 255},
-		Mask:       "*.jpg",
+		Masks:      []string{"*.jpg"},
 		OutDir:     "out",
 		KeepName:   false,
 	})
@@ -153,7 +153,7 @@ func TestProcessorRunPNGUsesTransparentCorners(t *testing.T) {
 		Width:      0,
 		Radius:     4,
 		Background: [3]uint8{255, 255, 255},
-		Mask:       "*.png",
+		Masks:      []string{"*.png"},
 		OutDir:     "out",
 		KeepName:   true,
 	})
@@ -199,7 +199,7 @@ func TestProcessorRunContinuesOnPerFileErrorAndAggregates(t *testing.T) {
 		Width:      0,
 		Radius:     2,
 		Background: [3]uint8{255, 255, 255},
-		Mask:       "*.jpg",
+		Masks:      []string{"*.jpg"},
 		OutDir:     "out",
 		KeepName:   true,
 	})
@@ -237,6 +237,9 @@ func TestProcessorRunContinuesOnPerFileErrorAndAggregates(t *testing.T) {
 	if stats.Processed != 1 {
 		t.Fatalf("expected one successful file despite one failure, got %d", stats.Processed)
 	}
+	if stats.Failed != 1 {
+		t.Fatalf("expected one failed file, got %d", stats.Failed)
+	}
 	if _, statErr := os.Stat(filepath.Join("out", "ok.jpg")); statErr != nil {
 		t.Fatalf("expected output for successful file, got stat error: %v", statErr)
 	}
@@ -259,7 +262,7 @@ func TestProcessorRunBlackPNGCornerTransparency(t *testing.T) {
 		Width:      0,
 		Radius:     8,
 		Background: [3]uint8{255, 255, 255},
-		Mask:       "*.png",
+		Masks:      []string{"*.png"},
 		OutDir:     "out",
 		KeepName:   true,
 	})

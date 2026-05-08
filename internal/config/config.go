@@ -16,7 +16,7 @@ type Config struct {
 	Width      int
 	Radius     int
 	Background [3]uint8
-	Mask       string
+	Masks      []string
 	OutDir     string
 	SaveExif   bool
 	Recursive  bool
@@ -36,10 +36,7 @@ var (
 	ErrFlagParse      = errors.New("flag parse failed")
 )
 
-var (
-	rxBackground   = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
-	rxLegacyBraces = regexp.MustCompile(`\{[^}]+\}`)
-)
+var rxBackground = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 type flagInfo struct {
 	long, short, desc string
@@ -100,11 +97,12 @@ func Load(binaryName string, args []string, stderr io.Writer) (Config, error) {
 		infos = append(infos, flagInfo{long, short, desc, def})
 	}
 
+	var maskStr string
 	addInt(&cfg.Quality, "quality", "q", 85, "JPEG/WebP/HEIF/AVIF quality (1..100)")
 	addInt(&cfg.Width, "width", "w", 660, "Output width; 0 keeps source width")
 	addInt(&cfg.Radius, "radius", "r", 10, "Corner radius in pixels")
 	addString(&bgStr, "background", "b", "#ffffff", "Corner background color (#RRGGBB)")
-	addString(&cfg.Mask, "mask", "m", "*", "Input file mask (glob)")
+	addString(&maskStr, "mask", "m", "*", "Input file mask (glob)")
 	addString(&cfg.OutDir, "out-dir", "o", "out", "Output directory")
 	addBool(&cfg.SaveExif, "save-exif", "e", false, "Copy EXIF metadata for JPEG outputs")
 	addBool(&cfg.Recursive, "recursive", "R", false, "Recursive file discovery")
@@ -125,7 +123,7 @@ func Load(binaryName string, args []string, stderr io.Writer) (Config, error) {
 		return Config{}, err
 	}
 	cfg.Background = bg
-	cfg.Mask = translateLegacyMask(cfg.Mask)
+	cfg.Masks = expandMask(maskStr)
 
 	if cfg.Quality < 1 || cfg.Quality > 100 {
 		return Config{}, errors.New("quality must be between 1 and 100")
@@ -163,9 +161,44 @@ func parseBackgroundColor(v string) ([3]uint8, error) {
 	return [3]uint8{uint8(n >> 16), uint8(n >> 8), uint8(n)}, nil
 }
 
-func translateLegacyMask(m string) string {
-	return rxLegacyBraces.ReplaceAllStringFunc(m, func(part string) string {
-		inner := part[1 : len(part)-1]
-		return "[" + strings.ReplaceAll(inner, ",", "") + "]"
-	})
+// expandMask expands a single mask pattern into one or more filepath.Match
+// patterns. Brace groups are expanded left-to-right (no nesting):
+//   - Single-char alternatives {j,J} become a character class [jJ], which
+//     filepath.Match understands natively.
+//   - Multi-char alternatives {jpg,png} expand into separate patterns
+//     ["*.jpg", "*.png"], because filepath.Match has no alternation syntax.
+func expandMask(m string) []string {
+	open := strings.IndexByte(m, '{')
+	if open == -1 {
+		return []string{m}
+	}
+	closeOff := strings.IndexByte(m[open:], '}')
+	if closeOff == -1 {
+		return []string{m}
+	}
+	close := open + closeOff
+
+	prefix := m[:open]
+	suffix := m[close+1:]
+	alternatives := strings.Split(m[open+1:close], ",")
+
+	allSingle := true
+	for _, a := range alternatives {
+		if len(a) != 1 {
+			allSingle = false
+			break
+		}
+	}
+
+	if allSingle {
+		// {j,J} → [jJ]: a character class that filepath.Match supports.
+		return expandMask(prefix + "[" + strings.Join(alternatives, "") + "]" + suffix)
+	}
+
+	// Multi-char alternatives: expand into one pattern per alternative.
+	var result []string
+	for _, a := range alternatives {
+		result = append(result, expandMask(prefix+a+suffix)...)
+	}
+	return result
 }

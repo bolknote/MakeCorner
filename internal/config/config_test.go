@@ -25,8 +25,8 @@ func TestLoadFromFlags(t *testing.T) {
 	if cfg.Background != [3]uint8{0x11, 0x22, 0x33} {
 		t.Fatalf("unexpected background: %#v", cfg.Background)
 	}
-	if cfg.Mask != "*" {
-		t.Fatalf("unexpected translated mask: %q", cfg.Mask)
+	if len(cfg.Masks) != 1 || cfg.Masks[0] != "*" {
+		t.Fatalf("unexpected translated masks: %v", cfg.Masks)
 	}
 	if cfg.OutDir != "res" || !cfg.SaveExif || !cfg.Recursive || !cfg.KeepName {
 		t.Fatalf("unexpected bool/string fields: %+v", cfg)
@@ -68,8 +68,34 @@ func TestLoadTranslatesLegacyMask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load error: %v", err)
 	}
-	if cfg.Mask != "*.[jJ][pP][gG]" {
-		t.Fatalf("unexpected translated mask: %q", cfg.Mask)
+	if len(cfg.Masks) != 1 || cfg.Masks[0] != "*.[jJ][pP][gG]" {
+		t.Fatalf("unexpected translated masks: %v", cfg.Masks)
+	}
+}
+
+func TestExpandMaskMultiCharBraces(t *testing.T) {
+	cases := []struct {
+		input string
+		want  []string
+	}{
+		{"*.jpg", []string{"*.jpg"}},
+		{"*.{jpg,png}", []string{"*.jpg", "*.png"}},
+		{"*.{jpg,png,webp}", []string{"*.jpg", "*.png", "*.webp"}},
+		{"*.{j,J}{p,P}{g,G}", []string{"*.[jJ][pP][gG]"}},
+		{"img.{jpg,png}.bak", []string{"img.jpg.bak", "img.png.bak"}},
+		{"*", []string{"*"}},
+	}
+	for _, tc := range cases {
+		got := expandMask(tc.input)
+		if len(got) != len(tc.want) {
+			t.Errorf("expandMask(%q) = %v, want %v", tc.input, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("expandMask(%q)[%d] = %q, want %q", tc.input, i, got[i], tc.want[i])
+			}
+		}
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 func TestCollectFilesNoRecursive(t *testing.T) {
-	files, err := collectFiles("*.missing", false, "out")
+	files, err := collectFiles([]string{"*.missing"}, false, "out")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestCollectFilesSkipsDirectoriesAndUnsupportedFiles(t *testing.T) {
 	}
 	makeJPEG(t, filepath.Join(tmp, "image.jpg"))
 
-	files, err := collectFiles("*", false, "out")
+	files, err := collectFiles([]string{"*"}, false, "out")
 	if err != nil {
 		t.Fatalf("collectFiles: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestCollectFilesAcceptsBrokenImageForLaterReport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files, err := collectFiles("*", false, "out")
+	files, err := collectFiles([]string{"*"}, false, "out")
 	if err != nil {
 		t.Fatalf("collectFiles: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestCollectFilesRecursiveSkipsOutDir(t *testing.T) {
 	makeJPEG(t, filepath.Join(tmp, "src", "nested", "in.jpg"))
 	makeJPEG(t, filepath.Join(tmp, "out", "nested", "out.jpg"))
 
-	files, err := collectFiles("*.jpg", true, "out")
+	files, err := collectFiles([]string{"*.jpg"}, true, "out")
 	if err != nil {
 		t.Fatalf("collectFiles recursive: %v", err)
 	}
@@ -116,5 +116,38 @@ func TestCollectFilesRecursiveSkipsOutDir(t *testing.T) {
 	}
 	if filepath.Base(files[0]) != "in.jpg" {
 		t.Fatalf("unexpected recursive match: %#v", files)
+	}
+}
+
+func TestCollectFilesMultipleMasksUnionAndDedup(t *testing.T) {
+	tmp := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	makeJPEG(t, filepath.Join(tmp, "photo.jpg"))
+	makePNG(t, filepath.Join(tmp, "graphic.png"))
+
+	// Two masks that cover different extensions — both files should appear once.
+	files, err := collectFiles([]string{"*.jpg", "*.png"}, false, "out")
+	if err != nil {
+		t.Fatalf("collectFiles: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files from two masks, got %#v", files)
+	}
+
+	// Overlapping masks must not produce duplicates.
+	files, err = collectFiles([]string{"*.jpg", "*.jpg"}, false, "out")
+	if err != nil {
+		t.Fatalf("collectFiles duplicate mask: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected 1 file with duplicate masks (no dup), got %#v", files)
 	}
 }

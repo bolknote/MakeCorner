@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -38,6 +42,44 @@ func TestRunReturnsConfigError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "quality") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunPrintsSummaryOnSuccess(t *testing.T) {
+	tmp := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a minimal valid JPEG so the pipeline has something to process.
+	img := image.NewRGBA(image.Rect(0, 0, 20, 20))
+	for y := range 20 {
+		for x := range 20 {
+			img.Set(x, y, color.RGBA{R: 100, G: 150, B: 200, A: 255})
+		}
+	}
+	f, err := os.Create(filepath.Join(tmp, "sample.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jpeg.Encode(f, img, &jpeg.Options{Quality: 80}); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	_ = f.Close()
+
+	var out bytes.Buffer
+	err = run([]string{"corner", "--mask", "*.jpg", "--out-dir", "out", "--radius", "0", "--width", "0"}, &out, io.Discard)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if !strings.Contains(out.String(), "Processed 1 file(s)") {
+		t.Fatalf("expected summary on stdout, got %q", out.String())
 	}
 }
 

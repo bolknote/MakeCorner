@@ -43,7 +43,14 @@ func run(args []string, stdout, stderr io.Writer) error {
 		_, _ = fmt.Fprint(stdout, mooASCII)
 		return nil
 	}
-	_, err = pipeline.NewProcessor(cfg).Run()
+	stats, err := pipeline.NewProcessor(cfg).Run()
+	if stats.Processed > 0 || stats.Failed > 0 {
+		if stats.Failed == 0 {
+			fmt.Fprintf(stdout, "Processed %d file(s)\n", stats.Processed)
+		} else {
+			fmt.Fprintf(stdout, "Processed %d file(s), %d failed\n", stats.Processed, stats.Failed)
+		}
+	}
 	return err
 }
 
