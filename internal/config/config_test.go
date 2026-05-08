@@ -1,6 +1,9 @@
 package config
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,7 +11,11 @@ import (
 )
 
 func TestLoadFromFlags(t *testing.T) {
-	cfg, err := Load("corner", []string{"--quality", "90", "--width", "320", "--radius", "12", "--background", "#112233", "--mask", "*", "--out-dir", "res", "--save-exif", "--recursive", "--keep-name"})
+	cfg, err := Load("corner", []string{
+		"--quality", "90", "--width", "320", "--radius", "12",
+		"--background", "#112233", "--mask", "*", "--out-dir", "res",
+		"--save-exif", "--recursive", "--keep-name",
+	}, io.Discard)
 	if err != nil {
 		t.Fatalf("Load error: %v", err)
 	}
@@ -28,7 +35,10 @@ func TestLoadFromFlags(t *testing.T) {
 
 func TestLoadFromIniFallbackAndValidation(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -39,7 +49,7 @@ func TestLoadFromIniFallbackAndValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, err := Load(filepath.Join(tmp, "corner"), nil)
+	cfg, err := Load(filepath.Join(tmp, "corner"), nil, io.Discard)
 	if err != nil {
 		t.Fatalf("Load from ini error: %v", err)
 	}
@@ -47,25 +57,50 @@ func TestLoadFromIniFallbackAndValidation(t *testing.T) {
 		t.Fatalf("unexpected ini config: %+v", cfg)
 	}
 
-	_, err = Load("corner", []string{"--background", "oops"})
+	_, err = Load("corner", []string{"--background", "oops"}, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "invalid background color") {
 		t.Fatalf("expected invalid background error, got: %v", err)
 	}
 }
 
-func TestMooASCIIContainsCow(t *testing.T) {
-	moo := MooASCII()
-	if !strings.Contains(moo, "(oo)") {
-		t.Fatalf("moo ascii changed unexpectedly")
-	}
-}
-
 func TestLoadTranslatesLegacyMask(t *testing.T) {
-	cfg, err := Load("corner", []string{"--mask", "*.{j,J}{p,P}{g,G}"})
+	cfg, err := Load("corner", []string{"--mask", "*.{j,J}{p,P}{g,G}"}, io.Discard)
 	if err != nil {
 		t.Fatalf("Load error: %v", err)
 	}
 	if cfg.Mask != "*.[jJ][pP][gG]" {
 		t.Fatalf("unexpected translated mask: %q", cfg.Mask)
+	}
+}
+
+func TestLoadReturnsSentinelOnFlagParseError(t *testing.T) {
+	var diag bytes.Buffer
+	_, err := Load("corner", []string{"--no-such-flag"}, &diag)
+	if !errors.Is(err, ErrFlagParse) {
+		t.Fatalf("expected ErrFlagParse, got %v", err)
+	}
+	if diag.Len() == 0 {
+		t.Fatal("flag package should have already written a diagnostic to stderr")
+	}
+}
+
+func TestLoadReturnsSentinelOnHelp(t *testing.T) {
+	var diag bytes.Buffer
+	_, err := Load("corner", []string{"--help"}, &diag)
+	if !errors.Is(err, ErrUsageRequested) {
+		t.Fatalf("expected ErrUsageRequested, got %v", err)
+	}
+	if !strings.Contains(diag.String(), "Flags:") {
+		t.Fatalf("usage should be written to provided writer, got %q", diag.String())
+	}
+}
+
+func TestLoadValidationErrorIsNotASentinel(t *testing.T) {
+	_, err := Load("corner", []string{"--quality", "999"}, io.Discard)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if errors.Is(err, ErrFlagParse) || errors.Is(err, ErrUsageRequested) {
+		t.Fatalf("validation errors must not surface as flag-parse sentinels: %v", err)
 	}
 }

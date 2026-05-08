@@ -45,4 +45,9 @@ func TestSupportsAlpha(t *testing.T) {
 	if SupportsAlpha(gd.FormatJPEG) || SupportsAlpha(gd.FormatBMP) {
 		t.Fatal("expected non-alpha formats to report false")
 	}
+	for _, f := range []gd.Format{gd.FormatGIF, gd.FormatWBMP, gd.FormatTGA} {
+		if SupportsAlpha(f) {
+			t.Fatalf("format %q must not advertise alpha (binary/no-alpha encoder)", f)
+		}
+	}
 }

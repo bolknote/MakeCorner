@@ -8,7 +8,10 @@ import (
 
 func TestParseFileAndReadIniOptions(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -32,7 +35,10 @@ func TestParseFileAndReadIniOptions(t *testing.T) {
 
 func TestParseFileWithoutTrailingNewline(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)

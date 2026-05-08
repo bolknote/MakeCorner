@@ -1,6 +1,10 @@
 package render
 
-import gd "github.com/bolknote/go-gd/v2/pkg/gd"
+import (
+	"math"
+
+	gd "github.com/bolknote/go-gd/v2/pkg/gd"
+)
 
 const cornerSamples = 8
 
@@ -67,32 +71,46 @@ func outsideCornerCoverage(x, y, radius int, pts []point) float64 {
 	return float64(outside) / float64(total)
 }
 
+// setBlended replaces (x,y) with the linear blend between the original pixel
+// and bg, weighted by the coverage t in [0, 1] (clamped). Channel arithmetic
+// uses math.Round to avoid the systematic rounding-toward-zero bias that
+// int(...) would introduce on every blended pixel.
+//
+// Note: gd treats alpha=0 as fully opaque (gd alpha range is 0..127).
 func setBlended(img *gd.Image, x, y int, bg [3]uint8, t float64) {
+	t = clamp01(t)
 	orig, err := pixelRGBA(img, x, y)
 	if err != nil {
 		return
 	}
 	inv := 1.0 - t
 	_ = img.SetPixel(x, y, gd.TrueColorAlpha(
-		int(inv*float64(orig.R)+t*float64(bg[0])),
-		int(inv*float64(orig.G)+t*float64(bg[1])),
-		int(inv*float64(orig.B)+t*float64(bg[2])),
+		blend8(inv, float64(orig.R), t, float64(bg[0])),
+		blend8(inv, float64(orig.G), t, float64(bg[1])),
+		blend8(inv, float64(orig.B), t, float64(bg[2])),
 		0,
 	))
 }
 
+// setTransparent marks (x,y) with a per-pixel alpha proportional to the
+// coverage t. The original RGB stays intact so transparent corners remain
+// faithful to the source image when previewed against another background.
 func setTransparent(img *gd.Image, x, y int, t float64) {
-	if t <= 0 {
+	t = clamp01(t)
+	if t == 0 {
 		return
-	}
-	if t > 1 {
-		t = 1
 	}
 	orig, err := pixelRGBA(img, x, y)
 	if err != nil {
 		return
 	}
-	alpha := int(t * 127)
+	alpha := int(math.Round(t * 127))
+	if alpha < 0 {
+		alpha = 0
+	}
+	if alpha > 127 {
+		alpha = 127
+	}
 	_ = img.SetPixel(x, y, gd.TrueColorAlpha(int(orig.R), int(orig.G), int(orig.B), alpha))
 }
 
@@ -102,4 +120,25 @@ func pixelRGBA(img *gd.Image, x, y int) (gd.RGBA, error) {
 		return gd.RGBA{}, err
 	}
 	return img.ColorRGBA(c)
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func blend8(invT, src, t, dst float64) int {
+	v := int(math.Round(invT*src + t*dst))
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return v
 }

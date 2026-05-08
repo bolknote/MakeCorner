@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -24,16 +24,37 @@ type Config struct {
 	Moo        bool
 }
 
+// Sentinel errors returned by Load. The caller is expected to use errors.Is
+// to differentiate them from validation errors:
+//   - ErrUsageRequested: the user asked for --help; flag has already printed
+//     the usage to the configured writer. The CLI should exit successfully.
+//   - ErrFlagParse: argv was malformed; flag has already printed both the
+//     diagnostic and the usage. The CLI should exit non-zero without
+//     printing the same error a second time.
+var (
+	ErrUsageRequested = errors.New("usage requested")
+	ErrFlagParse      = errors.New("flag parse failed")
+)
+
 var (
 	rxBackground   = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	rxLegacyBraces = regexp.MustCompile(`\{[^}]+\}`)
 )
 
-type flagInfo struct{ long, short, desc string }
+type flagInfo struct {
+	long, short, desc string
+	def               string
+}
 
-func Load(binaryName string, args []string) (Config, error) {
+// Load parses arguments using a flag set whose diagnostics go to stderr. The
+// binaryName is used to derive both the program name in usage and the
+// optional INI file (binaryName.ini, falling back to makecorner.ini).
+func Load(binaryName string, args []string, stderr io.Writer) (Config, error) {
+	if stderr == nil {
+		stderr = io.Discard
+	}
 	fs := flag.NewFlagSet(filepath.Base(binaryName), flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	ini := readIniOptions(binaryName)
 	var cfg Config
@@ -51,8 +72,8 @@ func Load(binaryName string, args []string) (Config, error) {
 			}
 		}
 		fs.IntVar(field, long, v, desc)
-		fs.IntVar(field, short, v, desc)
-		infos = append(infos, flagInfo{long, short, desc})
+		fs.IntVar(field, short, v, "alias for --"+long)
+		infos = append(infos, flagInfo{long, short, desc, strconv.Itoa(def)})
 	}
 	addBool := func(field *bool, long, short string, def bool, desc string) {
 		v := def
@@ -63,8 +84,8 @@ func Load(binaryName string, args []string) (Config, error) {
 			}
 		}
 		fs.BoolVar(field, long, v, desc)
-		fs.BoolVar(field, short, v, desc)
-		infos = append(infos, flagInfo{long, short, desc})
+		fs.BoolVar(field, short, v, "alias for --"+long)
+		infos = append(infos, flagInfo{long, short, desc, strconv.FormatBool(def)})
 	}
 	addString := func(field *string, long, short, def, desc string) {
 		v := def
@@ -75,33 +96,28 @@ func Load(binaryName string, args []string) (Config, error) {
 			}
 		}
 		fs.StringVar(field, long, v, desc)
-		fs.StringVar(field, short, v, desc)
-		infos = append(infos, flagInfo{long, short, desc})
+		fs.StringVar(field, short, v, "alias for --"+long)
+		infos = append(infos, flagInfo{long, short, desc, def})
 	}
 
-	addInt(&cfg.Quality, "quality", "q", 85, "JPEG quality")
-	addInt(&cfg.Width, "width", "w", 660, "Output width")
-	addInt(&cfg.Radius, "radius", "r", 10, "Corner radius")
-	addString(&bgStr, "background", "b", "#ffffff", "Corner background color")
-	addString(&cfg.Mask, "mask", "m", "*", "Input file mask")
+	addInt(&cfg.Quality, "quality", "q", 85, "JPEG/WebP/HEIF/AVIF quality (1..100)")
+	addInt(&cfg.Width, "width", "w", 660, "Output width; 0 keeps source width")
+	addInt(&cfg.Radius, "radius", "r", 10, "Corner radius in pixels")
+	addString(&bgStr, "background", "b", "#ffffff", "Corner background color (#RRGGBB)")
+	addString(&cfg.Mask, "mask", "m", "*", "Input file mask (glob)")
 	addString(&cfg.OutDir, "out-dir", "o", "out", "Output directory")
 	addBool(&cfg.SaveExif, "save-exif", "e", false, "Copy EXIF metadata for JPEG outputs")
 	addBool(&cfg.Recursive, "recursive", "R", false, "Recursive file discovery")
 	addBool(&cfg.KeepName, "keep-name", "k", false, "Keep source file names")
 	addBool(&cfg.Moo, "moo", "M", false, "Show easter egg")
 
-	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Flags:")
-		for _, fi := range infos {
-			if fi.long == "moo" {
-				continue
-			}
-			fmt.Fprintf(os.Stderr, "-%s, --%s: %s\n", fi.short, fi.long, fi.desc)
-		}
-	}
+	fs.Usage = func() { writeUsage(stderr, fs.Name(), infos) }
 
 	if err := fs.Parse(args); err != nil {
-		return Config{}, err
+		if errors.Is(err, flag.ErrHelp) {
+			return Config{}, ErrUsageRequested
+		}
+		return Config{}, ErrFlagParse
 	}
 
 	bg, err := parseBackgroundColor(bgStr)
@@ -124,22 +140,26 @@ func Load(binaryName string, args []string) (Config, error) {
 	return cfg, nil
 }
 
-func MooASCII() string {
-	return `
-                (__)
-                (oo)
-           /-----\/
-          / |   ||
-        *  /\--/\
-           ~~  ~~
-`
+func writeUsage(w io.Writer, name string, infos []flagInfo) {
+	_, _ = fmt.Fprintf(w, "Usage: %s [flags]\n\nFlags:\n", name)
+	for _, fi := range infos {
+		if fi.long == "moo" {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "  -%s, --%-12s %s (default: %s)\n", fi.short, fi.long, fi.desc, fi.def)
+	}
 }
 
 func parseBackgroundColor(v string) ([3]uint8, error) {
 	if !rxBackground.MatchString(v) {
 		return [3]uint8{}, fmt.Errorf("invalid background color %q", v)
 	}
-	n, _ := strconv.ParseUint(v[1:], 16, 32)
+	n, err := strconv.ParseUint(v[1:], 16, 32)
+	if err != nil {
+		// Should be unreachable given rxBackground, but guard anyway so we
+		// never return a silently-zeroed color on future regex changes.
+		return [3]uint8{}, fmt.Errorf("invalid background color %q: %w", v, err)
+	}
 	return [3]uint8{uint8(n >> 16), uint8(n >> 8), uint8(n)}, nil
 }
 

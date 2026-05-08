@@ -2,6 +2,10 @@ package imageio
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 
 	gd "github.com/bolknote/go-gd/v2/pkg/gd"
 )
@@ -28,8 +32,47 @@ func ResizeIfNeeded(img *gd.Image, width int) (*gd.Image, error) {
 	return img.Scale(uint(width), uint(h))
 }
 
+// Save writes img to path atomically: it encodes into a sibling temp file and
+// then renames it into place. Pre-flight checks turn known destination
+// problems (e.g. path is a directory) into wrapped fs.ErrExist so callers can
+// classify them with errors.Is.
 func Save(img *gd.Image, path string, quality int) error {
-	if err := encodeFile(img, path, quality); err != nil {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return fmt.Errorf("save %s: %w", path, fs.ErrExist)
+	}
+
+	dir := filepath.Dir(path)
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(filepath.Base(path), ext)
+	if base == "" {
+		base = "corner"
+	}
+
+	tmpFile, err := os.CreateTemp(dir, base+".*"+ext)
+	if err != nil {
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+	tmpPath := tmpFile.Name()
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+
+	if err := encodeFile(img, tmpPath, quality); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+
+	// os.CreateTemp uses 0600. Loosen to 0644 (the conventional mode for
+	// generated artifacts) so users can read the output without chmod.
+	// The actual on-disk mode is still subject to the process umask.
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("save %s: %w", path, err)
 	}
 	return nil

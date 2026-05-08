@@ -179,18 +179,15 @@ func collectFiles(mask string, recursive bool, outDir string) ([]string, error) 
 	return files, nil
 }
 
+// processableFile is a cheap discovery filter: it accepts any regular file
+// whose extension we recognize. Decoding errors for files that pass this
+// filter are reported per file by Run via aggregated errors instead of being
+// silently dropped at discovery time.
 func processableFile(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil || !info.Mode().IsRegular() {
 		return false
 	}
-	if _, err = imageio.DetectFormat(path); err != nil {
-		return false
-	}
-	img, err := imageio.Load(path)
-	if err != nil {
-		return false
-	}
-	_ = img.Close()
-	return true
+	_, err = imageio.DetectFormat(path)
+	return err == nil
 }

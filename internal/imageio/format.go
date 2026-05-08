@@ -46,9 +46,14 @@ func DetectFormat(path string) (gd.Format, error) {
 	}
 }
 
+// SupportsAlpha reports whether the encoder for format preserves per-pixel
+// alpha. GIF/WBMP/TGA are intentionally excluded:
+//   - GIF supports only one binary-transparent palette index;
+//   - WBMP is monochrome;
+//   - TGA encoding via libgd is fragile and not relied upon.
 func SupportsAlpha(format gd.Format) bool {
 	switch format {
-	case gd.FormatPNG, gd.FormatGIF, gd.FormatWebP, gd.FormatHEIF, gd.FormatAVIF, gd.FormatTIFF, gd.FormatTGA:
+	case gd.FormatPNG, gd.FormatWebP, gd.FormatHEIF, gd.FormatAVIF, gd.FormatTIFF:
 		return true
 	default:
 		return false

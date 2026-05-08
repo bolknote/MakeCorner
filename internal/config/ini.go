@@ -41,6 +41,12 @@ func parseFile(name string) iniFile {
 	current := iniSection{}
 	sections := iniFile{}
 
+	flush := func() {
+		if len(current) > 0 {
+			sections[section] = current
+		}
+	}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
@@ -48,7 +54,7 @@ func parseFile(name string) iniFile {
 		}
 
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			sections[section] = current
+			flush()
 			current = iniSection{}
 			section = line[1 : len(line)-1]
 			continue
@@ -69,8 +75,6 @@ func parseFile(name string) iniFile {
 		return nil
 	}
 
-	if len(current) > 0 {
-		sections[section] = current
-	}
+	flush()
 	return sections
 }

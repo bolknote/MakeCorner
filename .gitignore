@@ -2,11 +2,10 @@
 *.DS_Store
 
 # Go build artifacts
-corner
+/corner
 *.exe
 *.test
 *.out
 
 # Generated outputs
 out/
-1.png

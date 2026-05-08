@@ -3,17 +3,32 @@ package imageio
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 	"os"
+	"path/filepath"
 )
 
 var ErrNotJPEG = errors.New("not a jpeg file")
 
+// JPEG marker bytes (the byte that follows 0xFF).
 const (
-	markerSOI = 0xD8
-	markerEOI = 0xD9
-	markerSOS = 0xDA
-	markerAPP1 = 0xE1
+	markerSOI  = 0xD8 // start of image
+	markerEOI  = 0xD9 // end of image
+	markerSOS  = 0xDA // start of scan (entropy-coded data follows)
+	markerAPP1 = 0xE1 // application-specific segment 1 (Exif lives here)
 )
+
+// markerStandalone reports whether the JPEG marker has no length/payload (TEM
+// or any of the RST_n restart markers). Such markers are exactly two bytes on
+// the wire (0xFF + marker).
+func markerStandalone(marker byte) bool {
+	const (
+		markerTEM   = 0x01
+		markerRST0  = 0xD0
+		markerRST7  = 0xD7
+	)
+	return marker == markerTEM || (marker >= markerRST0 && marker <= markerRST7)
+}
 
 func ReadEXIFSegment(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
@@ -23,19 +38,32 @@ func ReadEXIFSegment(path string) ([]byte, error) {
 	return extractEXIFSegment(data)
 }
 
+// WriteEXIFSegment replaces (or inserts) the Exif APP1 segment in the JPEG at
+// path. The write is atomic: the modified payload is staged in a sibling temp
+// file and then renamed into place, preserving the original file mode.
 func WriteEXIFSegment(path string, exifSegment []byte) error {
 	if len(exifSegment) == 0 {
 		return nil
 	}
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
 	cleaned, err := stripEXIFSegments(data)
-	if err != nil {
-		return err
-	}
-	st, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
@@ -43,7 +71,39 @@ func WriteEXIFSegment(path string, exifSegment []byte) error {
 	out = append(out, cleaned[:2]...)
 	out = append(out, exifSegment...)
 	out = append(out, cleaned[2:]...)
-	return os.WriteFile(path, out, st.Mode().Perm())
+	return atomicWriteFile(path, out, info.Mode().Perm())
+}
+
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Chmod(tmpPath, perm); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // scanJPEG walks a JPEG byte stream after the SOI marker. For every recognized
@@ -64,7 +124,7 @@ func scanJPEG(jpeg []byte, visit func(marker byte, start, end int)) (tail int, o
 		switch {
 		case marker == markerEOI, marker == markerSOS:
 			return i, true
-		case marker == 0x01, marker >= 0xD0 && marker <= 0xD7:
+		case markerStandalone(marker):
 			visit(marker, i, i+2)
 			i += 2
 			continue

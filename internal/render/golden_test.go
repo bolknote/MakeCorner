@@ -23,8 +23,14 @@ func TestQuarterBezierGolden(t *testing.T) {
 		if len(parts) != 2 {
 			t.Fatalf("bad golden line: %q", s.Text())
 		}
-		x, _ := strconv.ParseFloat(parts[0], 64)
-		want, _ := strconv.ParseFloat(parts[1], 64)
+		x, err := strconv.ParseFloat(parts[0], 64)
+		if err != nil {
+			t.Fatalf("bad x in golden line %q: %v", s.Text(), err)
+		}
+		want, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			t.Fatalf("bad y in golden line %q: %v", s.Text(), err)
+		}
 		got := yOnQuarterBezier(x, 10)
 		if diff := abs(got - want); diff > 0.2 {
 			t.Fatalf("x=%.2f got=%.4f want=%.4f diff=%.4f", x, got, want, diff)

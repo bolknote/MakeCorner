@@ -51,7 +51,10 @@ func makePNG(t *testing.T, path string) {
 
 func TestProcessorRunKeepName(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -84,7 +87,10 @@ func TestProcessorRunKeepName(t *testing.T) {
 
 func TestProcessorRunGeneratedName(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -100,8 +106,7 @@ func TestProcessorRunGeneratedName(t *testing.T) {
 		OutDir:     "out",
 		KeepName:   false,
 	})
-	_, err := p.Run()
-	if err != nil {
+	if _, err := p.Run(); err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
 	entries, err := os.ReadDir("out")
@@ -115,7 +120,10 @@ func TestProcessorRunGeneratedName(t *testing.T) {
 
 func TestProcessorRunPNGUsesTransparentCorners(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -156,7 +164,10 @@ func TestProcessorRunPNGUsesTransparentCorners(t *testing.T) {
 
 func TestProcessorRunContinuesOnPerFileErrorAndAggregates(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)

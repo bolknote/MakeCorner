@@ -33,7 +33,10 @@ func TestGeneratedNameKeepsSourceExtension(t *testing.T) {
 
 func TestCollectFilesSkipsDirectoriesAndUnsupportedFiles(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -56,9 +59,15 @@ func TestCollectFilesSkipsDirectoriesAndUnsupportedFiles(t *testing.T) {
 	}
 }
 
-func TestCollectFilesSkipsBrokenImagePayload(t *testing.T) {
+func TestCollectFilesAcceptsBrokenImageForLaterReport(t *testing.T) {
+	// Discovery is deliberately extension-only: files with a known image
+	// extension reach Run, which reports per-file decode failures via
+	// errors.Join instead of silently dropping them at discovery time.
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)
@@ -72,14 +81,17 @@ func TestCollectFilesSkipsBrokenImagePayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectFiles: %v", err)
 	}
-	if len(files) != 0 {
-		t.Fatalf("expected broken image to be skipped, got %#v", files)
+	if len(files) != 1 || files[0] != "broken.jpg" {
+		t.Fatalf("expected broken image to be discovered, got %#v", files)
 	}
 }
 
 func TestCollectFilesRecursiveSkipsOutDir(t *testing.T) {
 	tmp := t.TempDir()
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = os.Chdir(wd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatal(err)

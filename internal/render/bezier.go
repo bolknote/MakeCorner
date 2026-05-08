@@ -31,9 +31,20 @@ func quarterBezierPoints(radius float64, steps int) []point {
 	return pts
 }
 
-// defaultSteps picks a sample count proportional to the radius.
+// defaultSteps picks a sample count proportional to the radius. The polyline
+// is linearly interpolated downstream, so very high step counts buy nothing
+// past the point where the spacing falls below one pixel; the upper bound
+// caps memory/time on huge radii.
 func defaultSteps(radius float64) int {
-	return int(math.Max(16, radius*4))
+	const minSteps, maxSteps = 16, 256
+	steps := int(math.Round(radius * 4))
+	if steps < minSteps {
+		return minSteps
+	}
+	if steps > maxSteps {
+		return maxSteps
+	}
+	return steps
 }
 
 // yOnPoints returns the linearly interpolated y for x along the polyline pts.
