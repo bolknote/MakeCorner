@@ -1,4 +1,4 @@
-.PHONY: all build test vet tools lint analyze check vulncheck
+.PHONY: all build test vet tools lint analyze check vulncheck clean
 
 GOBIN_DIR := $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
 GOLANGCI_LINT := $(GOBIN_DIR)/golangci-lint
@@ -35,3 +35,6 @@ analyze: lint
 
 # `check` is the full local verification flow used as the CI gate.
 check: build analyze test vulncheck
+
+clean:
+	rm -f corner *.out
