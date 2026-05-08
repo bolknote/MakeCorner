@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - `config.Config.Mask` (string) replaced by `config.Config.Masks` ([]string)
   to hold the expanded pattern set
+- Clarified README docs for `--background`: it blends rounded corners only for
+  non-alpha outputs; alpha-capable formats keep transparent corners
 
 ## [0.1.0] - 2026-05-08
 

@@ -50,7 +50,7 @@ All flags accept both a long form and a short alias.
 | `--quality`   | `-q`  | `85`        | JPEG/WebP/HEIF/AVIF quality (1..100)              |
 | `--width`     | `-w`  | `660`       | Output width; `0` keeps the source width          |
 | `--radius`    | `-r`  | `10`        | Corner radius in pixels                           |
-| `--background`| `-b`  | `#ffffff`   | Background color blended into corners (`#RRGGBB`) |
+| `--background`| `-b`  | `#ffffff`   | Corner blend color for non-alpha outputs (`#RRGGBB`) |
 | `--mask`      | `-m`  | `*`         | Input file mask (glob)                            |
 | `--out-dir`   | `-o`  | `out`       | Output directory                                  |
 | `--save-exif` | `-e`  | `false`     | Copy EXIF metadata for JPEG outputs (best-effort) |
