@@ -26,4 +26,4 @@ analyze: vet lint
 check: build vet test
 
 build:
-	go build -o corner ./cmd/corner
+	go build ./...
