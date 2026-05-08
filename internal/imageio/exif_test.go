@@ -188,3 +188,86 @@ func TestWriteEXIFSegmentMissingFile(t *testing.T) {
 		t.Fatal("expected open error for missing destination")
 	}
 }
+
+func TestScanJPEGRejectsNonJPEG(t *testing.T) {
+	if _, ok := scanJPEG([]byte("not-jpeg"), func(byte, int, int) {}); ok {
+		t.Fatal("expected non-jpeg input to be rejected")
+	}
+}
+
+func TestScanJPEGHandlesStandaloneAndEOI(t *testing.T) {
+	jpeg := []byte{
+		0xFF, 0xD8, // SOI
+		0xFF, 0xD0, // RST0 (standalone)
+		0xFF, 0xD9, // EOI
+	}
+	visited := 0
+	tail, ok := scanJPEG(jpeg, func(marker byte, start, end int) {
+		visited++
+		if marker != 0xD0 || start != 2 || end != 4 {
+			t.Fatalf("unexpected standalone marker visit: marker=%x range=[%d,%d)", marker, start, end)
+		}
+	})
+	if !ok {
+		t.Fatal("expected valid JPEG stream")
+	}
+	if tail != 4 {
+		t.Fatalf("expected tail at EOI marker, got %d", tail)
+	}
+	if visited != 1 {
+		t.Fatalf("expected one standalone marker visit, got %d", visited)
+	}
+}
+
+func TestScanJPEGHandlesMalformedSegmentsGracefully(t *testing.T) {
+	t.Run("missing-length-bytes", func(t *testing.T) {
+		jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE1}
+		tail, ok := scanJPEG(jpeg, func(byte, int, int) {})
+		if !ok {
+			t.Fatal("expected parser to stay in graceful mode")
+		}
+		if tail != 2 {
+			t.Fatalf("expected tail at malformed segment start, got %d", tail)
+		}
+	})
+
+	t.Run("invalid-segment-length", func(t *testing.T) {
+		jpeg := []byte{
+			0xFF, 0xD8,
+			0xFF, 0xE1, 0x00, 0x01, // invalid: length < 2
+			0xFF, 0xD9,
+		}
+		tail, ok := scanJPEG(jpeg, func(byte, int, int) {})
+		if !ok {
+			t.Fatal("expected parser to stay in graceful mode")
+		}
+		if tail != 2 {
+			t.Fatalf("expected tail at malformed APP1 start, got %d", tail)
+		}
+	})
+}
+
+func TestAtomicWriteFileCreatesFileWithPerms(t *testing.T) {
+	tmp := t.TempDir()
+	dst := filepath.Join(tmp, "written.bin")
+	content := []byte("payload")
+
+	if err := atomicWriteFile(dst, content, 0o640); err != nil {
+		t.Fatalf("atomicWriteFile: %v", err)
+	}
+
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, content) {
+		t.Fatalf("unexpected file content: %q", got)
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o640 {
+		t.Fatalf("unexpected file mode: got %#o want %#o", info.Mode().Perm(), os.FileMode(0o640))
+	}
+}
