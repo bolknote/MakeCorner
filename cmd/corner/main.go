@@ -46,9 +46,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	stats, err := pipeline.NewProcessor(cfg).Run()
 	if stats.Processed > 0 || stats.Failed > 0 {
 		if stats.Failed == 0 {
-			fmt.Fprintf(stdout, "Processed %d file(s)\n", stats.Processed)
+			_, _ = fmt.Fprintf(stdout, "Processed %d file(s)\n", stats.Processed)
 		} else {
-			fmt.Fprintf(stdout, "Processed %d file(s), %d failed\n", stats.Processed, stats.Failed)
+			_, _ = fmt.Fprintf(stdout, "Processed %d file(s), %d failed\n", stats.Processed, stats.Failed)
 		}
 	}
 	return err
